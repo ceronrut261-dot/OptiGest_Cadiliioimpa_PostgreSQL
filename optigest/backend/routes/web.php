@@ -1,0 +1,59 @@
+<?php
+
+use App\Http\Controllers\Cotizaciones\CotizacionController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\IA\AsistenteController;
+use App\Http\Controllers\Inventario\MaterialController;
+use App\Http\Controllers\Inventario\MovimientoInventarioController;
+use App\Http\Controllers\Inventario\ReporteInventarioController;
+use App\Http\Controllers\Proveedores\ProveedorController;
+use App\Http\Controllers\Tickets\TicketController;
+use Illuminate\Support\Facades\Route;
+
+Route::redirect('/', '/dashboard');
+
+Route::middleware(['auth', 'verified'])->group(function () {
+
+    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+    Route::prefix('inventario')->name('inventario.')->group(function () {
+
+        Route::middleware(['role:administrador|cotizador'])->group(function () {
+            // Se fija explicitamente el parametro de ruta como "material"
+            // porque Laravel singulariza "materiales" incorrectamente como
+            // "materiale" (no es una palabra en ingles).
+            Route::resource('materiales', MaterialController::class)
+                ->parameters(['materiales' => 'material']);
+        });
+
+        Route::middleware(['role:administrador|tecnico|cotizador'])->group(function () {
+            Route::get('movimientos', [MovimientoInventarioController::class, 'index'])->name('movimientos.index');
+            Route::get('movimientos/crear', [MovimientoInventarioController::class, 'create'])->name('movimientos.create');
+            Route::post('movimientos', [MovimientoInventarioController::class, 'store'])->name('movimientos.store');
+        });
+
+        Route::middleware(['role:administrador'])->group(function () {
+            Route::get('reportes/stock', [ReporteInventarioController::class, 'stock'])->name('reportes.stock');
+            Route::get('reportes/stock/exportar', [ReporteInventarioController::class, 'exportarPdf'])->name('reportes.stock.pdf');
+        });
+    });
+
+    Route::middleware(['role:administrador|cotizador'])->group(function () {
+        Route::resource('proveedores', ProveedorController::class);
+    });
+
+    Route::resource('tickets', TicketController::class);
+    Route::patch('tickets/{ticket}/estado', [TicketController::class, 'cambiarEstado'])->name('tickets.estado');
+
+    Route::middleware(['role:administrador|cotizador'])->group(function () {
+        Route::resource('cotizaciones', CotizacionController::class);
+        Route::patch('cotizaciones/{cotizacion}/aprobar', [CotizacionController::class, 'aprobar'])->name('cotizaciones.aprobar');
+        Route::patch('cotizaciones/{cotizacion}/rechazar', [CotizacionController::class, 'rechazar'])->name('cotizaciones.rechazar');
+        Route::get('cotizaciones/{cotizacion}/pdf', [CotizacionController::class, 'exportarPdf'])->name('cotizaciones.pdf');
+    });
+
+    Route::get('asistente', [AsistenteController::class, 'index'])->name('asistente.index');
+    Route::post('asistente/consultar', [AsistenteController::class, 'consultar'])->name('asistente.consultar');
+});
+
+require __DIR__.'/auth.php';
