@@ -19,9 +19,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::prefix('inventario')->name('inventario.')->group(function () {
 
         Route::middleware(['role:administrador|cotizador'])->group(function () {
-            // Se fija explicitamente el parametro de ruta como "material"
-            // porque Laravel singulariza "materiales" incorrectamente como
-            // "materiale" (no es una palabra en ingles).
+            // Se fija explícitamente el parámetro de ruta como "material"
             Route::resource('materiales', MaterialController::class)
                 ->parameters(['materiales' => 'material']);
         });
@@ -39,14 +37,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
 
     Route::middleware(['role:administrador|cotizador'])->group(function () {
-        Route::resource('proveedores', ProveedorController::class);
+        Route::resource('proveedores', ProveedorController::class)
+            ->parameters(['proveedores' => 'proveedor']);
     });
 
     Route::resource('tickets', TicketController::class);
     Route::patch('tickets/{ticket}/estado', [TicketController::class, 'cambiarEstado'])->name('tickets.estado');
 
     Route::middleware(['role:administrador|cotizador'])->group(function () {
-        Route::resource('cotizaciones', CotizacionController::class);
+        Route::resource('cotizaciones', CotizacionController::class)
+            ->parameters(['cotizaciones' => 'cotizacion']);
         Route::patch('cotizaciones/{cotizacion}/aprobar', [CotizacionController::class, 'aprobar'])->name('cotizaciones.aprobar');
         Route::patch('cotizaciones/{cotizacion}/rechazar', [CotizacionController::class, 'rechazar'])->name('cotizaciones.rechazar');
         Route::get('cotizaciones/{cotizacion}/pdf', [CotizacionController::class, 'exportarPdf'])->name('cotizaciones.pdf');
