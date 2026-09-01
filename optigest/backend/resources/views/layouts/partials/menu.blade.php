@@ -35,4 +35,10 @@
     <a href="{{ route('asistente.index') }}" class="list-group-item list-group-item-action {{ str_starts_with($ruta, 'asistente.') ? 'active' : '' }}">
         <i class="bi bi-robot me-2"></i> Asistente IA
     </a>
+
+    @role('administrador')
+        <a href="{{ route('usuarios.create') }}" class="list-group-item list-group-item-action {{ str_starts_with($ruta, 'usuarios.') ? 'active' : '' }}">
+            <i class="bi bi-person-plus me-2"></i> Crear Usuario
+        </a>
+    @endrole
 </div>

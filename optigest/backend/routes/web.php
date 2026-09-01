@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Cotizaciones\CotizacionController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\IA\AsistenteController;
@@ -54,6 +55,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('asistente', [AsistenteController::class, 'index'])->name('asistente.index');
     Route::post('asistente/consultar', [AsistenteController::class, 'consultar'])->name('asistente.consultar');
+
+    Route::middleware(['role:administrador'])->group(function () {
+        Route::get('usuarios/crear', [RegisteredUserController::class, 'create'])->name('usuarios.create');
+        Route::post('usuarios', [RegisteredUserController::class, 'store'])->name('usuarios.store');
+    });
 });
 
 require __DIR__.'/auth.php';

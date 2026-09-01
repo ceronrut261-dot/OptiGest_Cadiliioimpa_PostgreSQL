@@ -56,6 +56,8 @@ class TicketController extends Controller
 
     public function edit(Ticket $ticket)
     {
+        $this->authorize('update', $ticket);
+
         return view('tickets.create', [
             'ticket' => $ticket,
             'tecnicos' => User::role('tecnico')->orderBy('name')->get(),
@@ -64,6 +66,8 @@ class TicketController extends Controller
 
     public function update(Request $request, Ticket $ticket)
     {
+        $this->authorize('update', $ticket);
+
         $datos = $request->validate([
             'cliente' => ['required', 'string', 'max:255'],
             'telefono_cliente' => ['nullable', 'string', 'max:20'],
@@ -82,6 +86,8 @@ class TicketController extends Controller
 
     public function destroy(Ticket $ticket)
     {
+        $this->authorize('delete', $ticket);
+
         $ticket->update(['estado' => 'cancelado']);
 
         return redirect()->route('tickets.index')->with('status', "Ticket {$ticket->codigo} cancelado.");
@@ -89,6 +95,8 @@ class TicketController extends Controller
 
     public function cambiarEstado(Request $request, Ticket $ticket)
     {
+        $this->authorize('cambiarEstado', $ticket);
+
         $datos = $request->validate(['estado' => ['required', 'in:pendiente,asignado,en_proceso,completado,cancelado']]);
 
         $ticket->estado = $datos['estado'];

@@ -29,7 +29,9 @@
 
     <div class="d-flex justify-content-between small">
         <a href="{{ route('password.request') }}">¿Olvidaste tu contraseña?</a>
-        <a href="{{ route('register') }}">Crear cuenta</a>
+    </div>
+    <div class="text-center small mt-2 text-muted">
+        Las cuentas de OptiGest son creadas por un administrador.
     </div>
 </form>
 @endsection
