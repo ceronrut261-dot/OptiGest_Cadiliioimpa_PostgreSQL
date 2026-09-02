@@ -17,7 +17,9 @@ class DashboardController extends Controller
                 ->whereMonth('fecha_completado', now()->month)->count(),
             'cotizaciones_pendientes' => Cotizacion::where('estado', 'enviada')->count(),
             'materiales_bajo_stock' => Material::bajoStock()->where('activo', true)->count(),
-            'valor_inventario' => Material::where('activo', true)->get()->sum(fn ($m) => $m->precio * $m->stock),
+            'valor_inventario' => Material::where('activo', true)
+                ->selectRaw('COALESCE(SUM(precio * stock), 0) as total')
+                ->value('total'),
         ];
 
         $ticketsPorEstado = Ticket::select('estado', DB::raw('count(*) as total'))->groupBy('estado')->pluck('total', 'estado');

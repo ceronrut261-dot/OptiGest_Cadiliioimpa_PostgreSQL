@@ -35,5 +35,11 @@
     <a href="<?php echo e(route('asistente.index')); ?>" class="list-group-item list-group-item-action <?php echo e(str_starts_with($ruta, 'asistente.') ? 'active' : ''); ?>">
         <i class="bi bi-robot me-2"></i> Asistente IA
     </a>
+
+    <?php if (\Illuminate\Support\Facades\Blade::check('role', 'administrador')): ?>
+        <a href="<?php echo e(route('usuarios.create')); ?>" class="list-group-item list-group-item-action <?php echo e(str_starts_with($ruta, 'usuarios.') ? 'active' : ''); ?>">
+            <i class="bi bi-person-plus me-2"></i> Crear Usuario
+        </a>
+    <?php endif; ?>
 </div>
 <?php /**PATH C:\Users\ceron\Downloads\OptiGest_Cadiliompa_PostgreSQL\optigest\backend\resources\views/layouts/partials/menu.blade.php ENDPATH**/ ?>

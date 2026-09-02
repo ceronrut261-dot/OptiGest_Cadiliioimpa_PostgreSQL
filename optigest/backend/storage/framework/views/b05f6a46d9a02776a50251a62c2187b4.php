@@ -1,3 +1,5 @@
+
+
 <?php $__env->startSection('titulo', 'Iniciar sesión'); ?>
 
 <?php $__env->startSection('contenido'); ?>
@@ -27,7 +29,9 @@
 
     <div class="d-flex justify-content-between small">
         <a href="<?php echo e(route('password.request')); ?>">¿Olvidaste tu contraseña?</a>
-        <a href="<?php echo e(route('register')); ?>">Crear cuenta</a>
+    </div>
+    <div class="text-center small mt-2 text-muted">
+        Las cuentas de OptiGest son creadas por un administrador.
     </div>
 </form>
 <?php $__env->stopSection(); ?>
