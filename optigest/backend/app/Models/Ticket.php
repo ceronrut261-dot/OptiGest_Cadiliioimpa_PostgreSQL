@@ -14,7 +14,7 @@ class Ticket extends Model
     const ESTADOS = ['pendiente', 'asignado', 'en_proceso', 'completado', 'cancelado'];
 
     protected $fillable = [
-        'codigo', 'cliente', 'telefono_cliente', 'direccion', 'descripcion',
+        'codigo', 'cliente_id', 'descripcion',
         'prioridad', 'estado', 'tecnico_id', 'fecha_programada', 'fecha_completado',
     ];
 
@@ -24,6 +24,11 @@ class Ticket extends Model
             'fecha_programada' => 'datetime',
             'fecha_completado' => 'datetime',
         ];
+    }
+
+    public function cliente()
+    {
+        return $this->belongsTo(Cliente::class);
     }
 
     public function tecnico()

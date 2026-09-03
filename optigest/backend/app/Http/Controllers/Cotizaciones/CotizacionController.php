@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Cotizaciones;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Inventario\MovimientoInventarioController;
+use App\Models\Cliente;
 use App\Models\Cotizacion;
 use App\Models\Material;
 use App\Models\Ticket;
@@ -16,7 +17,7 @@ class CotizacionController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Cotizacion::with(['cotizador', 'ticket'])->orderByDesc('fecha');
+        $query = Cotizacion::with(['cotizador', 'ticket', 'cliente'])->orderByDesc('fecha');
 
         if ($estado = $request->get('estado')) {
             $query->where('estado', $estado);
@@ -32,14 +33,15 @@ class CotizacionController extends Controller
     {
         return view('cotizaciones.create', [
             'materiales' => Material::where('activo', true)->orderBy('nombre')->get(),
-            'tickets' => Ticket::whereIn('estado', ['pendiente', 'asignado', 'en_proceso'])->orderByDesc('id')->get(),
+            'tickets' => Ticket::whereIn('estado', ['pendiente', 'asignado', 'en_proceso'])->with('cliente')->orderByDesc('id')->get(),
+            'clientes' => Cliente::orderBy('nombre')->get(),
         ]);
     }
 
     public function store(Request $request)
     {
         $datos = $request->validate([
-            'cliente' => ['required', 'string', 'max:255'],
+            'cliente_id' => ['required', 'exists:clientes,id'],
             'ticket_id' => ['nullable', 'exists:tickets,id'],
             'observaciones' => ['nullable', 'string'],
             'materiales' => ['required', 'array', 'min:1'],
@@ -50,7 +52,7 @@ class CotizacionController extends Controller
         $cotizacion = DB::transaction(function () use ($datos, $request) {
             $cotizacion = Cotizacion::create([
                 'codigo' => Cotizacion::generarCodigo(),
-                'cliente' => $datos['cliente'],
+                'cliente_id' => $datos['cliente_id'],
                 'ticket_id' => $datos['ticket_id'] ?? null,
                 'cotizador_id' => $request->user()->id,
                 'estado' => 'borrador',
@@ -80,7 +82,7 @@ class CotizacionController extends Controller
 
     public function show(Cotizacion $cotizacion)
     {
-        return view('cotizaciones.show', ['cotizacion' => $cotizacion->load(['detalles.material', 'cotizador', 'ticket'])]);
+        return view('cotizaciones.show', ['cotizacion' => $cotizacion->load(['detalles.material', 'cotizador', 'ticket', 'cliente'])]);
     }
 
     public function aprobar(Request $request, Cotizacion $cotizacion)
@@ -121,7 +123,7 @@ class CotizacionController extends Controller
 
     public function exportarPdf(Cotizacion $cotizacion)
     {
-        $cotizacion->load(['detalles.material', 'cotizador']);
+        $cotizacion->load(['detalles.material', 'cotizador', 'cliente']);
         $pdf = Pdf::loadView('cotizaciones.pdf', ['cotizacion' => $cotizacion]);
 
         return $pdf->download("cotizacion-{$cotizacion->codigo}.pdf");

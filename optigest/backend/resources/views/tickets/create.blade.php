@@ -5,10 +5,20 @@
 <form method="POST" action="{{ isset($ticket) ? route('tickets.update', $ticket) : route('tickets.store') }}" class="bg-white p-4 rounded shadow-sm" style="max-width:640px;">
     @csrf
     @if(isset($ticket)) @method('PUT') @endif
-    <div class="mb-3"><label class="form-label small">Cliente</label><input type="text" name="cliente" value="{{ old('cliente', $ticket->cliente ?? '') }}" class="form-control" required></div>
-    <div class="row">
-        <div class="col-md-6 mb-3"><label class="form-label small">Teléfono</label><input type="text" name="telefono_cliente" value="{{ old('telefono_cliente', $ticket->telefono_cliente ?? '') }}" class="form-control"></div>
-        <div class="col-md-6 mb-3"><label class="form-label small">Dirección</label><input type="text" name="direccion" value="{{ old('direccion', $ticket->direccion ?? '') }}" class="form-control"></div>
+    <div class="mb-3">
+        <label class="form-label small">Cliente</label>
+        <div class="d-flex gap-2">
+            <select name="cliente_id" class="form-select" required>
+                <option value="">— Selecciona un cliente —</option>
+                @foreach($clientes as $cliente)
+                    <option value="{{ $cliente->id }}" {{ old('cliente_id', $ticket->cliente_id ?? '') == $cliente->id ? 'selected' : '' }}>
+                        {{ $cliente->nombre }}{{ $cliente->telefono ? ' — '.$cliente->telefono : '' }}
+                    </option>
+                @endforeach
+            </select>
+            <a href="{{ route('clientes.create', ['origen' => 'ticket']) }}" target="_blank" class="btn btn-outline-secondary text-nowrap">Cliente nuevo</a>
+        </div>
+        <div class="form-text">¿No aparece? Créalo en la pestaña nueva y refresca esta lista.</div>
     </div>
     <div class="mb-3"><label class="form-label small">Descripción</label><textarea name="descripcion" class="form-control" rows="3" required>{{ old('descripcion', $ticket->descripcion ?? '') }}</textarea></div>
     <div class="row">

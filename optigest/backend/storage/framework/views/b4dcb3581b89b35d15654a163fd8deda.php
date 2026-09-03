@@ -8,6 +8,10 @@
         <i class="bi bi-tools me-2"></i> Tickets / Servicios
     </a>
 
+    <a href="<?php echo e(route('clientes.index')); ?>" class="list-group-item list-group-item-action <?php echo e(str_starts_with($ruta, 'clientes.') ? 'active' : ''); ?>">
+        <i class="bi bi-people me-2"></i> Clientes
+    </a>
+
     <?php if (\Illuminate\Support\Facades\Blade::check('hasanyrole', 'administrador|tecnico|cotizador')): ?>
         <a href="<?php echo e(route('inventario.movimientos.index')); ?>" class="list-group-item list-group-item-action <?php echo e(str_starts_with($ruta, 'inventario.movimientos') ? 'active' : ''); ?>">
             <i class="bi bi-arrow-left-right me-2"></i> Movimientos Inventario

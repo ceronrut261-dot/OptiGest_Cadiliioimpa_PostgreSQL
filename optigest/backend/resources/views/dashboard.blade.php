@@ -106,7 +106,7 @@
             <div class="list-group list-group-flush">
                 @forelse($ticketsRecientes as $ticket)
                     <a href="{{ route('tickets.show', $ticket) }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
-                        <span>{{ $ticket->codigo }} — {{ $ticket->cliente }}</span>
+                        <span>{{ $ticket->codigo }} — {{ $ticket->cliente->nombre }}</span>
                         <span class="badge bg-secondary text-capitalize">{{ str_replace('_', ' ', $ticket->estado) }}</span>
                     </a>
                 @empty

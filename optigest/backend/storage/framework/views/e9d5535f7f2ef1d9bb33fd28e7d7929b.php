@@ -1,3 +1,4 @@
+
 <?php $__env->startSection('titulo', 'Tickets'); ?>
 <?php $__env->startSection('contenido'); ?>
 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -11,7 +12,7 @@
     <?php $__empty_1 = true; $__currentLoopData = $tickets; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $ticket): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
         <tr>
             <td><?php echo e($ticket->codigo); ?></td>
-            <td><?php echo e($ticket->cliente); ?></td>
+            <td><?php echo e($ticket->cliente->nombre); ?></td>
             <td class="text-capitalize"><?php echo e($ticket->prioridad); ?></td>
             <td><span class="badge bg-secondary text-capitalize"><?php echo e(str_replace('_',' ',$ticket->estado)); ?></span></td>
             <td><?php echo e($ticket->tecnico?->name ?? '—'); ?></td>

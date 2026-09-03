@@ -6,14 +6,25 @@
 <form method="POST" action="{{ route('cotizaciones.store') }}" class="bg-white p-4 rounded shadow-sm" style="max-width:720px;" id="form-cotizacion">
     @csrf
 
-    <div class="mb-3"><label class="form-label small">Cliente</label><input type="text" name="cliente" class="form-control" required></div>
+    <div class="mb-3">
+        <label class="form-label small">Cliente</label>
+        <div class="d-flex gap-2">
+            <select name="cliente_id" class="form-select" required>
+                <option value="">— Selecciona un cliente —</option>
+                @foreach($clientes as $cliente)
+                    <option value="{{ $cliente->id }}">{{ $cliente->nombre }}{{ $cliente->telefono ? ' — '.$cliente->telefono : '' }}</option>
+                @endforeach
+            </select>
+            <a href="{{ route('clientes.create', ['origen' => 'cotizacion']) }}" target="_blank" class="btn btn-outline-secondary text-nowrap">Cliente nuevo</a>
+        </div>
+    </div>
 
     <div class="mb-3">
         <label class="form-label small">Ticket relacionado (opcional)</label>
         <select name="ticket_id" class="form-select">
             <option value="">— Ninguno —</option>
             @foreach($tickets as $ticket)
-                <option value="{{ $ticket->id }}">{{ $ticket->codigo }} — {{ $ticket->cliente }}</option>
+                <option value="{{ $ticket->id }}">{{ $ticket->codigo }} — {{ $ticket->cliente->nombre }}</option>
             @endforeach
         </select>
     </div>

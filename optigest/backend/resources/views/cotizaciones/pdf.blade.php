@@ -14,7 +14,7 @@
 <body>
     <h1>Cotización {{ $cotizacion->codigo }} — OptiGest</h1>
     <p>Constru Fontanería Cadiliompa</p>
-    <p><strong>Cliente:</strong> {{ $cotizacion->cliente }} &nbsp; <strong>Fecha:</strong> {{ $cotizacion->fecha->format('d/m/Y') }}</p>
+    <p><strong>Cliente:</strong> {{ $cotizacion->cliente->nombre }} &nbsp; <strong>Fecha:</strong> {{ $cotizacion->fecha->format('d/m/Y') }}</p>
 
     <table>
         <thead><tr><th>Material</th><th class="text-end">Cantidad</th><th class="text-end">Precio unit.</th><th class="text-end">Subtotal</th></tr></thead>

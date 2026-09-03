@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Tickets;
 
 use App\Http\Controllers\Controller;
+use App\Models\Cliente;
 use App\Models\Ticket;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -11,7 +12,7 @@ class TicketController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Ticket::with('tecnico')->orderByDesc('created_at');
+        $query = Ticket::with(['tecnico', 'cliente'])->orderByDesc('created_at');
 
         if ($estado = $request->get('estado')) {
             $query->where('estado', $estado);
@@ -25,15 +26,16 @@ class TicketController extends Controller
 
     public function create()
     {
-        return view('tickets.create', ['tecnicos' => User::role('tecnico')->orderBy('name')->get()]);
+        return view('tickets.create', [
+            'tecnicos' => User::role('tecnico')->orderBy('name')->get(),
+            'clientes' => Cliente::orderBy('nombre')->get(),
+        ]);
     }
 
     public function store(Request $request)
     {
         $datos = $request->validate([
-            'cliente' => ['required', 'string', 'max:255'],
-            'telefono_cliente' => ['nullable', 'string', 'max:20'],
-            'direccion' => ['nullable', 'string', 'max:255'],
+            'cliente_id' => ['required', 'exists:clientes,id'],
             'descripcion' => ['required', 'string'],
             'prioridad' => ['required', 'in:baja,media,alta,urgente'],
             'tecnico_id' => ['nullable', 'exists:users,id'],
@@ -51,7 +53,7 @@ class TicketController extends Controller
 
     public function show(Ticket $ticket)
     {
-        return view('tickets.show', ['ticket' => $ticket->load(['tecnico', 'cotizaciones'])]);
+        return view('tickets.show', ['ticket' => $ticket->load(['tecnico', 'cliente', 'cotizaciones'])]);
     }
 
     public function edit(Ticket $ticket)
@@ -61,6 +63,7 @@ class TicketController extends Controller
         return view('tickets.create', [
             'ticket' => $ticket,
             'tecnicos' => User::role('tecnico')->orderBy('name')->get(),
+            'clientes' => Cliente::orderBy('nombre')->get(),
         ]);
     }
 
@@ -69,9 +72,7 @@ class TicketController extends Controller
         $this->authorize('update', $ticket);
 
         $datos = $request->validate([
-            'cliente' => ['required', 'string', 'max:255'],
-            'telefono_cliente' => ['nullable', 'string', 'max:20'],
-            'direccion' => ['nullable', 'string', 'max:255'],
+            'cliente_id' => ['required', 'exists:clientes,id'],
             'descripcion' => ['required', 'string'],
             'prioridad' => ['required', 'in:baja,media,alta,urgente'],
             'tecnico_id' => ['nullable', 'exists:users,id'],

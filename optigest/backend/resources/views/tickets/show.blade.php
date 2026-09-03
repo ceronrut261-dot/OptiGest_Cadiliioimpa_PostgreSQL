@@ -7,7 +7,15 @@
 </div>
 <div class="card border-0 shadow-sm mb-3">
     <div class="card-body">
-        <p><strong>Cliente:</strong> {{ $ticket->cliente }}</p>
+        <p><strong>Cliente:</strong> {{ $ticket->cliente->nombre }}
+            <a href="{{ route('clientes.edit', $ticket->cliente) }}" class="small">(editar)</a>
+        </p>
+        @if($ticket->cliente->telefono)
+            <p><strong>Teléfono:</strong> {{ $ticket->cliente->telefono }}</p>
+        @endif
+        @if($ticket->cliente->direccion)
+            <p><strong>Dirección:</strong> {{ $ticket->cliente->direccion }}</p>
+        @endif
         <p><strong>Descripción:</strong> {{ $ticket->descripcion }}</p>
         <p><strong>Técnico:</strong> {{ $ticket->tecnico?->name ?? '—' }}</p>
         <p><strong>Estado actual:</strong> <span class="badge bg-secondary text-capitalize">{{ str_replace('_',' ',$ticket->estado) }}</span></p>

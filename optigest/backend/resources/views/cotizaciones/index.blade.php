@@ -12,7 +12,7 @@
     @forelse($cotizaciones as $cot)
         <tr>
             <td>{{ $cot->codigo }}</td>
-            <td>{{ $cot->cliente }}</td>
+            <td>{{ $cot->cliente->nombre }}</td>
             <td><span class="badge bg-secondary text-capitalize">{{ $cot->estado }}</span></td>
             <td class="text-end">Q{{ number_format($cot->total, 2) }}</td>
             <td>{{ $cot->fecha->format('d/m/Y') }}</td>

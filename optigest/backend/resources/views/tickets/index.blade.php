@@ -12,7 +12,7 @@
     @forelse($tickets as $ticket)
         <tr>
             <td>{{ $ticket->codigo }}</td>
-            <td>{{ $ticket->cliente }}</td>
+            <td>{{ $ticket->cliente->nombre }}</td>
             <td class="text-capitalize">{{ $ticket->prioridad }}</td>
             <td><span class="badge bg-secondary text-capitalize">{{ str_replace('_',' ',$ticket->estado) }}</span></td>
             <td>{{ $ticket->tecnico?->name ?? '—' }}</td>

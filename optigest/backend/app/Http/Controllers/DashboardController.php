@@ -35,7 +35,7 @@ class DashboardController extends Controller
             'cotizacionesPorEstado' => $cotizacionesPorEstado,
             'tiempoPromedioCotizacionHoras' => round($tiempoPromedioCotizacionHoras ?? 0, 2),
             'materialesBajoStock' => Material::bajoStock()->where('activo', true)->orderBy('stock')->take(8)->get(),
-            'ticketsRecientes' => Ticket::orderByDesc('created_at')->take(6)->get(),
+            'ticketsRecientes' => Ticket::with('cliente')->orderByDesc('created_at')->take(6)->get(),
         ]);
     }
 }

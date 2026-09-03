@@ -1,3 +1,4 @@
+
 <?php $__env->startSection('titulo', 'Ticket ' . $ticket->codigo); ?>
 <?php $__env->startSection('contenido'); ?>
 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -6,7 +7,16 @@
 </div>
 <div class="card border-0 shadow-sm mb-3">
     <div class="card-body">
-        <p><strong>Cliente:</strong> <?php echo e($ticket->cliente); ?></p>
+        <p><strong>Cliente:</strong> <?php echo e($ticket->cliente->nombre); ?>
+
+            <a href="<?php echo e(route('clientes.edit', $ticket->cliente)); ?>" class="small">(editar)</a>
+        </p>
+        <?php if($ticket->cliente->telefono): ?>
+            <p><strong>Teléfono:</strong> <?php echo e($ticket->cliente->telefono); ?></p>
+        <?php endif; ?>
+        <?php if($ticket->cliente->direccion): ?>
+            <p><strong>Dirección:</strong> <?php echo e($ticket->cliente->direccion); ?></p>
+        <?php endif; ?>
         <p><strong>Descripción:</strong> <?php echo e($ticket->descripcion); ?></p>
         <p><strong>Técnico:</strong> <?php echo e($ticket->tecnico?->name ?? '—'); ?></p>
         <p><strong>Estado actual:</strong> <span class="badge bg-secondary text-capitalize"><?php echo e(str_replace('_',' ',$ticket->estado)); ?></span></p>

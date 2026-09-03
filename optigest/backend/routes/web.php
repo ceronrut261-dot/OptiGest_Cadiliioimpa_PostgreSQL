@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\RegisteredUserController;
+use App\Http\Controllers\Clientes\ClienteController;
 use App\Http\Controllers\Cotizaciones\CotizacionController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\IA\AsistenteController;
@@ -41,6 +42,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::resource('proveedores', ProveedorController::class)
             ->parameters(['proveedores' => 'proveedor']);
     });
+
+    Route::resource('clientes', ClienteController::class)->except(['show', 'destroy']);
 
     Route::resource('tickets', TicketController::class);
     Route::patch('tickets/{ticket}/estado', [TicketController::class, 'cambiarEstado'])->name('tickets.estado');

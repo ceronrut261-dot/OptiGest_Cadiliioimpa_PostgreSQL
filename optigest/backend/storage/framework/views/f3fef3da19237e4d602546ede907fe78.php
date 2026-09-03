@@ -1,3 +1,5 @@
+
+
 <?php $__env->startSection('titulo', 'Dashboard'); ?>
 
 <?php $__env->startSection('contenido'); ?>
@@ -105,7 +107,7 @@
             <div class="list-group list-group-flush">
                 <?php $__empty_1 = true; $__currentLoopData = $ticketsRecientes; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $ticket): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
                     <a href="<?php echo e(route('tickets.show', $ticket)); ?>" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
-                        <span><?php echo e($ticket->codigo); ?> — <?php echo e($ticket->cliente); ?></span>
+                        <span><?php echo e($ticket->codigo); ?> — <?php echo e($ticket->cliente->nombre); ?></span>
                         <span class="badge bg-secondary text-capitalize"><?php echo e(str_replace('_', ' ', $ticket->estado)); ?></span>
                     </a>
                 <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>

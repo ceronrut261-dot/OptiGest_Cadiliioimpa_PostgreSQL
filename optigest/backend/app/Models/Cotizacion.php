@@ -16,7 +16,7 @@ class Cotizacion extends Model
     const ESTADOS = ['borrador', 'enviada', 'aprobada', 'rechazada'];
 
     protected $fillable = [
-        'codigo', 'cliente', 'ticket_id', 'cotizador_id', 'estado',
+        'codigo', 'cliente_id', 'ticket_id', 'cotizador_id', 'estado',
         'subtotal', 'total', 'fecha', 'observaciones',
     ];
 
@@ -27,6 +27,11 @@ class Cotizacion extends Model
             'subtotal' => 'decimal:2',
             'total' => 'decimal:2',
         ];
+    }
+
+    public function cliente()
+    {
+        return $this->belongsTo(Cliente::class);
     }
 
     public function ticket()

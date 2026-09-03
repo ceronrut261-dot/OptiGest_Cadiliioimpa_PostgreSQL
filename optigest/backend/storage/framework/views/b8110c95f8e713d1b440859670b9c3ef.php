@@ -1,13 +1,25 @@
+
 <?php $__env->startSection('titulo', isset($ticket) ? 'Editar ticket' : 'Nuevo ticket'); ?>
 <?php $__env->startSection('contenido'); ?>
 <h2 class="h4 mb-4"><?php echo e(isset($ticket) ? 'Editar ticket' : 'Nuevo ticket'); ?></h2>
 <form method="POST" action="<?php echo e(isset($ticket) ? route('tickets.update', $ticket) : route('tickets.store')); ?>" class="bg-white p-4 rounded shadow-sm" style="max-width:640px;">
     <?php echo csrf_field(); ?>
     <?php if(isset($ticket)): ?> <?php echo method_field('PUT'); ?> <?php endif; ?>
-    <div class="mb-3"><label class="form-label small">Cliente</label><input type="text" name="cliente" value="<?php echo e(old('cliente', $ticket->cliente ?? '')); ?>" class="form-control" required></div>
-    <div class="row">
-        <div class="col-md-6 mb-3"><label class="form-label small">Teléfono</label><input type="text" name="telefono_cliente" value="<?php echo e(old('telefono_cliente', $ticket->telefono_cliente ?? '')); ?>" class="form-control"></div>
-        <div class="col-md-6 mb-3"><label class="form-label small">Dirección</label><input type="text" name="direccion" value="<?php echo e(old('direccion', $ticket->direccion ?? '')); ?>" class="form-control"></div>
+    <div class="mb-3">
+        <label class="form-label small">Cliente</label>
+        <div class="d-flex gap-2">
+            <select name="cliente_id" class="form-select" required>
+                <option value="">— Selecciona un cliente —</option>
+                <?php $__currentLoopData = $clientes; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $cliente): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                    <option value="<?php echo e($cliente->id); ?>" <?php echo e(old('cliente_id', $ticket->cliente_id ?? '') == $cliente->id ? 'selected' : ''); ?>>
+                        <?php echo e($cliente->nombre); ?><?php echo e($cliente->telefono ? ' — '.$cliente->telefono : ''); ?>
+
+                    </option>
+                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+            </select>
+            <a href="<?php echo e(route('clientes.create', ['origen' => 'ticket'])); ?>" target="_blank" class="btn btn-outline-secondary text-nowrap">Cliente nuevo</a>
+        </div>
+        <div class="form-text">¿No aparece? Créalo en la pestaña nueva y refresca esta lista.</div>
     </div>
     <div class="mb-3"><label class="form-label small">Descripción</label><textarea name="descripcion" class="form-control" rows="3" required><?php echo e(old('descripcion', $ticket->descripcion ?? '')); ?></textarea></div>
     <div class="row">

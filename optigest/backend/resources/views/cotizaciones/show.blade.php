@@ -20,7 +20,7 @@
 
 <div class="card border-0 shadow-sm mb-3">
     <div class="card-body">
-        <p><strong>Cliente:</strong> {{ $cotizacion->cliente }}</p>
+        <p><strong>Cliente:</strong> {{ $cotizacion->cliente->nombre }}</p>
         <p><strong>Estado:</strong> <span class="badge bg-secondary text-capitalize">{{ $cotizacion->estado }}</span></p>
         <p><strong>Cotizador:</strong> {{ $cotizacion->cotizador->name }}</p>
         @if($cotizacion->ticket)
