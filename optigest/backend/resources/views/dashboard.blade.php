@@ -5,6 +5,13 @@
 @section('contenido')
 <h2 class="h4 mb-4">Panel Gerencial — KPIs Operativos</h2>
 
+{{-- Botón Importar desde Excel en la parte superior --}}
+<div class="mb-4 text-end">
+    <a href="{{ route('inventario.importar.form') }}" class="btn btn-secondary">
+        <i class="bi bi-file-earmark-arrow-up"></i> Importar desde Excel
+    </a>
+</div>
+
 <div class="row g-3 mb-4">
     <div class="col-6 col-md-3">
         <div class="card border-0 shadow-sm h-100">

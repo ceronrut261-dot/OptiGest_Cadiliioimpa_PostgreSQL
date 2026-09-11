@@ -10,6 +10,7 @@ use App\Http\Controllers\Inventario\MovimientoInventarioController;
 use App\Http\Controllers\Inventario\ReporteInventarioController;
 use App\Http\Controllers\Proveedores\ProveedorController;
 use App\Http\Controllers\Tickets\TicketController;
+use App\Http\Controllers\Inventario\InventarioImportController;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/dashboard');
@@ -35,6 +36,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::middleware(['role:administrador'])->group(function () {
             Route::get('reportes/stock', [ReporteInventarioController::class, 'stock'])->name('reportes.stock');
             Route::get('reportes/stock/exportar', [ReporteInventarioController::class, 'exportarPdf'])->name('reportes.stock.pdf');
+        });
+
+        // 👇 Rutas de importación integradas en Inventario
+        Route::middleware(['role:administrador'])->group(function () {
+            Route::get('importar', [InventarioImportController::class, 'form'])->name('importar.form');
+            Route::post('importar', [InventarioImportController::class, 'import'])->name('importar');
         });
     });
 
