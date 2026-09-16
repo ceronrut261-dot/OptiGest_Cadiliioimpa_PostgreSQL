@@ -1,8 +1,10 @@
+```php
 @extends('layouts.app')
 
 @section('titulo', 'Materiales')
 
 @section('contenido')
+
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <h2 class="h4 mb-0">Materiales de Inventario</h2>
     <a href="{{ route('inventario.materiales.create') }}" class="btn btn-primary btn-sm">
@@ -54,6 +56,7 @@
                     </td>
                     <td class="text-end">
                         <a href="{{ route('inventario.materiales.edit', $material) }}" class="btn btn-sm btn-outline-primary">Editar</a>
+                        <a href="{{ route('inventario.materiales.historial', $material) }}" class="btn btn-sm btn-outline-secondary">Historial</a>
                         <form action="{{ route('inventario.materiales.destroy', $material) }}" method="POST" class="d-inline" onsubmit="return confirm('¿Desactivar este material?');">
                             @csrf @method('DELETE')
                             <button class="btn btn-sm btn-outline-danger">Desactivar</button>
@@ -68,4 +71,6 @@
 </div>
 
 {{ $materiales->links() }}
+
 @endsection
+```

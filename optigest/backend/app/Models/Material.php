@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Observers\MaterialObserver;
 
 class Material extends Model
 {
@@ -29,6 +30,16 @@ class Material extends Model
     public function proveedor()
     {
         return $this->belongsTo(Proveedor::class);
+    }
+
+    public function historialPrecios()
+    {
+    return $this->hasMany(HistorialPrecioMaterial::class, 'material_id');
+    }
+
+    protected static function booted(): void
+    {
+    static::observe(MaterialObserver::class);
     }
 
     public function movimientos()
