@@ -32,6 +32,16 @@ class AuthenticatedSessionController extends Controller
             ]);
         }
 
+        // Si el usuario fue desactivado por un administrador, se cierra
+        // la sesión inmediatamente y no se le permite continuar.
+        if (! Auth::user()->activo) {
+            Auth::logout();
+
+            throw ValidationException::withMessages([
+                'email' => 'Esta cuenta ha sido desactivada. Contacta a un administrador.',
+            ]);
+        }
+
         $request->session()->regenerate();
 
         return redirect()->intended(route('dashboard'));

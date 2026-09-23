@@ -13,8 +13,8 @@
         <div class="card shadow-sm border-0" style="max-width:420px; width:100%;">
             <div class="card-body p-4">
                 <div class="text-center mb-4">
-                    <h4 class="fw-bold text-primary">OptiGest</h4>
-                    <p class="text-muted small mb-0">Constru Fontanería Cadiliompa</p>
+                    <img src="{{ asset('images/logo-cadiliompa.png') }}" alt="Cadiliompa" class="mb-2" style="max-width:220px; width:100%;">
+                    <p class="text-muted small mb-0">Sistema de Gestión Operativa</p>
                 </div>
 
                 @if (session('status'))

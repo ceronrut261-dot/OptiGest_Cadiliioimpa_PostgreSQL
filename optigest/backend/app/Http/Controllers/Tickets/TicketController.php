@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Cliente;
 use App\Models\Ticket;
 use App\Models\User;
+use App\Notifications\TicketAsignado;
 use Illuminate\Http\Request;
 
 class TicketController extends Controller
@@ -47,6 +48,10 @@ class TicketController extends Controller
 
         $ticket = Ticket::create($datos);
 
+        if ($ticket->tecnico_id) {
+            $ticket->tecnico->notify(new TicketAsignado($ticket));
+        }
+
         return redirect()->route('tickets.show', $ticket)
             ->with('status', "Ticket {$ticket->codigo} creado correctamente.");
     }
@@ -79,7 +84,16 @@ class TicketController extends Controller
             'fecha_programada' => ['nullable', 'date'],
         ]);
 
+        $tecnicoAnterior = $ticket->tecnico_id;
+
         $ticket->update($datos);
+
+        // Notifica solo si el técnico asignado es nuevo o cambió
+        // (evita reenviar el correo cuando se edita el ticket sin
+        // tocar el campo de técnico).
+        if ($ticket->tecnico_id && $ticket->tecnico_id !== $tecnicoAnterior) {
+            $ticket->tecnico->notify(new TicketAsignado($ticket));
+        }
 
         return redirect()->route('tickets.show', $ticket)
             ->with('status', "Ticket {$ticket->codigo} actualizado correctamente.");

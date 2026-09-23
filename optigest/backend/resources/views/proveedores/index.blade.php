@@ -7,14 +7,14 @@
 </div>
 <div class="table-responsive">
 <table class="table table-sm table-hover bg-white">
-    <thead class="table-light"><tr><th>Nombre</th><th>NIT</th><th>Contacto</th><th>Teléfono</th><th class="text-end">Materiales</th><th></th></tr></thead>
+    <thead class="table-light"><tr><th>Proveedor</th><th>Nombre (contacto)</th><th>Teléfono</th><th>Descripción</th><th class="text-end">Materiales</th><th></th></tr></thead>
     <tbody>
     @forelse($proveedores as $proveedor)
         <tr>
             <td>{{ $proveedor->nombre }}</td>
-            <td>{{ $proveedor->nit }}</td>
-            <td>{{ $proveedor->contacto }}</td>
+            <td>{{ $proveedor->nombre_contacto }}</td>
             <td>{{ $proveedor->telefono }}</td>
+            <td class="small text-muted">{{ \Illuminate\Support\Str::limit($proveedor->descripcion, 50) }}</td>
             <td class="text-end">{{ $proveedor->materiales_count }}</td>
             <td class="text-end">
                 <a href="{{ route('proveedores.edit', $proveedor) }}" class="btn btn-sm btn-outline-primary">Editar</a>

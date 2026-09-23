@@ -10,7 +10,11 @@ class ClienteController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Cliente::withCount(['tickets', 'cotizaciones'])->orderBy('nombre');
+        $verInactivos = $request->boolean('inactivos');
+
+        $query = Cliente::withCount(['tickets', 'cotizaciones'])
+            ->when(!$verInactivos, fn ($q) => $q->where('activo', true))
+            ->orderBy('nombre');
 
         if ($busqueda = $request->get('q')) {
             $query->where(function ($q) use ($busqueda) {
@@ -19,7 +23,10 @@ class ClienteController extends Controller
             });
         }
 
-        return view('clientes.index', ['clientes' => $query->paginate(15)->withQueryString()]);
+        return view('clientes.index', [
+            'clientes' => $query->paginate(15)->withQueryString(),
+            'verInactivos' => $verInactivos,
+        ]);
     }
 
     public function create()
@@ -31,9 +38,6 @@ class ClienteController extends Controller
     {
         $cliente = Cliente::create($this->validarDatos($request));
 
-        // Si el cliente se está creando desde el formulario de un ticket o
-        // una cotización (ver botón "Cliente nuevo" en esas vistas), regresa
-        // directo a esa pantalla con el cliente recién creado ya disponible.
         if ($request->get('origen') === 'ticket') {
             return redirect()->route('tickets.create')
                 ->with('status', "Cliente {$cliente->nombre} registrado. Ya puedes seleccionarlo en el ticket.");
@@ -59,6 +63,28 @@ class ClienteController extends Controller
 
         return redirect()->route('clientes.index')
             ->with('status', "Cliente {$cliente->nombre} actualizado correctamente.");
+    }
+
+    /**
+     * "Eliminar" un cliente en realidad lo desactiva: no aparece en el
+     * listado normal, pero su historial de tickets/cotizaciones se
+     * conserva intacto (la base de datos no permite borrarlo de verdad
+     * si ya tiene tickets o cotizaciones asociadas).
+     */
+    public function destroy(Cliente $cliente)
+    {
+        $cliente->update(['activo' => false]);
+
+        return redirect()->route('clientes.index')
+            ->with('status', "Cliente {$cliente->nombre} desactivado.");
+    }
+
+    public function reactivar(Cliente $cliente)
+    {
+        $cliente->update(['activo' => true]);
+
+        return redirect()->route('clientes.index', ['inactivos' => 1])
+            ->with('status', "Cliente {$cliente->nombre} reactivado.");
     }
 
     private function validarDatos(Request $request): array

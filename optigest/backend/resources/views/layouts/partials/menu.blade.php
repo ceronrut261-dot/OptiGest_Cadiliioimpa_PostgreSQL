@@ -22,11 +22,17 @@
         <a href="{{ route('inventario.materiales.index') }}" class="list-group-item list-group-item-action {{ str_starts_with($ruta, 'inventario.materiales') ? 'active' : '' }}">
             <i class="bi bi-box-seam me-2"></i> Materiales
         </a>
+
         <a href="{{ route('proveedores.index') }}" class="list-group-item list-group-item-action {{ str_starts_with($ruta, 'proveedores.') ? 'active' : '' }}">
             <i class="bi bi-truck me-2"></i> Proveedores
         </a>
+
         <a href="{{ route('cotizaciones.index') }}" class="list-group-item list-group-item-action {{ str_starts_with($ruta, 'cotizaciones.') ? 'active' : '' }}">
             <i class="bi bi-receipt me-2"></i> Cotizaciones
+        </a>
+
+        <a href="{{ route('salidas.index') }}" class="list-group-item list-group-item-action {{ str_starts_with($ruta, 'salidas.') ? 'active' : '' }}">
+            <i class="bi bi-box-arrow-up me-2"></i> Salidas de Materiales
         </a>
     @endhasanyrole
 
@@ -41,8 +47,13 @@
     </a>
 
     @role('administrador')
+        <a href="{{ route('usuarios.index') }}" class="list-group-item list-group-item-action {{ $ruta === 'usuarios.index' ? 'active' : '' }}">
+            <i class="bi bi-people-fill me-2"></i> Usuarios
+        </a>
+
         <a href="{{ route('usuarios.create') }}" class="list-group-item list-group-item-action {{ str_starts_with($ruta, 'usuarios.') ? 'active' : '' }}">
             <i class="bi bi-person-plus me-2"></i> Crear Usuario
         </a>
     @endrole
 </div>
+

@@ -57,11 +57,9 @@ class ProveedorController extends Controller
     {
         return $request->validate([
             'nombre' => ['required', 'string', 'max:255'],
-            'nit' => ['nullable', 'string', 'max:20'],
-            'contacto' => ['nullable', 'string', 'max:255'],
+            'nombre_contacto' => ['nullable', 'string', 'max:255'],
             'telefono' => ['nullable', 'string', 'max:20'],
-            'email' => ['nullable', 'email', 'max:255'],
-            'direccion' => ['nullable', 'string', 'max:255'],
+            'descripcion' => ['nullable', 'string'],
         ]);
     }
 }

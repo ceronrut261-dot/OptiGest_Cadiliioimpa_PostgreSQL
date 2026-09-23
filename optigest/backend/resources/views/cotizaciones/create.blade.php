@@ -1,21 +1,19 @@
 @extends('layouts.app')
-@section('titulo', 'Nueva cotización')
+@section('titulo', 'Nueva salida de materiales')
 @section('contenido')
-<h2 class="h4 mb-4">Nueva cotización</h2>
+<h2 class="h4 mb-4">Nueva salida de materiales</h2>
 
-<form method="POST" action="{{ route('cotizaciones.store') }}" class="bg-white p-4 rounded shadow-sm" style="max-width:720px;" id="form-cotizacion">
+<form method="POST" action="{{ route('salidas.store') }}" class="bg-white p-4 rounded shadow-sm" style="max-width:760px;" id="form-salida">
     @csrf
 
-    <div class="mb-3">
-        <label class="form-label small">Cliente</label>
-        <div class="d-flex gap-2">
-            <select name="cliente_id" class="form-select" required>
-                <option value="">— Selecciona un cliente —</option>
-                @foreach($clientes as $cliente)
-                    <option value="{{ $cliente->id }}">{{ $cliente->nombre }}{{ $cliente->telefono ? ' — '.$cliente->telefono : '' }}</option>
-                @endforeach
-            </select>
-            <a href="{{ route('clientes.create', ['origen' => 'cotizacion']) }}" target="_blank" class="btn btn-outline-secondary text-nowrap">Cliente nuevo</a>
+    <div class="row g-3 mb-3">
+        <div class="col-md-6">
+            <label class="form-label small">Nombre del proyecto</label>
+            <input type="text" name="proyecto" class="form-control" required>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label small">Persona que recibe</label>
+            <input type="text" name="persona_recibe" class="form-control" required>
         </div>
     </div>
 
@@ -24,12 +22,12 @@
         <select name="ticket_id" class="form-select">
             <option value="">— Ninguno —</option>
             @foreach($tickets as $ticket)
-                <option value="{{ $ticket->id }}">{{ $ticket->codigo }} — {{ $ticket->cliente->nombre }}</option>
+                <option value="{{ $ticket->id }}">{{ $ticket->codigo }}</option>
             @endforeach
         </select>
     </div>
 
-    <label class="form-label small">Materiales</label>
+    <label class="form-label small">Materiales a entregar</label>
     <div id="lineas-materiales">
         <div class="row g-2 mb-2 linea-material">
             <div class="col-7">
@@ -46,10 +44,18 @@
     </div>
     <button type="button" class="btn btn-sm btn-outline-secondary mb-3" id="agregar-linea">+ Agregar material</button>
 
-    <div class="mb-3"><label class="form-label small">Observaciones</label><textarea name="observaciones" class="form-control" rows="2"></textarea></div>
+    <div class="mb-3">
+        <label class="form-label small">Observaciones</label>
+        <textarea name="observaciones" class="form-control" rows="2"></textarea>
+    </div>
 
-    <button type="submit" class="btn btn-primary">Crear cotización (borrador)</button>
-    <a href="{{ route('cotizaciones.index') }}" class="btn btn-outline-secondary">Cancelar</a>
+    <div class="mb-3">
+        <label class="form-label small">¿Falta algo por comprar?</label>
+        <textarea name="falta_comprar" class="form-control" rows="2" placeholder="Deja en blanco si no falta nada"></textarea>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Registrar salida y generar vale</button>
+    <a href="{{ route('salidas.index') }}" class="btn btn-outline-secondary">Cancelar</a>
 </form>
 
 <script>

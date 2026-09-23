@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Inventario;
 use App\Http\Controllers\Controller;
 use App\Models\Material;
 use App\Models\MovimientoInventario;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -90,5 +91,54 @@ class MovimientoInventarioController extends Controller
             'cotizacion_id' => $cotizacionId,
             'stock_resultante' => $material->stock,
         ]);
+    }
+
+    /**
+     * Igual que registrarSalidaPorCotizacion, pero para una salida de
+     * materiales (vale de entrega) en vez de una cotización aprobada.
+     */
+    public static function registrarSalidaPorEntrega(Material $material, int $cantidad, int $usuarioId, int $salidaId): void
+    {
+        $material->refresh();
+        $material->stock = max(0, $material->stock - $cantidad);
+        $material->save();
+
+        MovimientoInventario::create([
+            'material_id' => $material->id,
+            'tipo' => MovimientoInventario::TIPO_SALIDA,
+            'cantidad' => $cantidad,
+            'motivo' => 'Salida de materiales (vale de entrega)',
+            'fecha' => now(),
+            'usuario_id' => $usuarioId,
+            'salida_id' => $salidaId,
+            'stock_resultante' => $material->stock,
+        ]);
+    }
+
+    /**
+     * Reporte de movimientos de inventario en PDF (con logo), respeta
+     * los mismos filtros que el listado en pantalla.
+     */
+    public function exportarPdf(Request $request)
+    {
+        $query = MovimientoInventario::with(['material', 'usuario'])->orderByDesc('fecha');
+
+        if ($materialId = $request->get('material_id')) {
+            $query->where('material_id', $materialId);
+        }
+
+        if ($tipo = $request->get('tipo')) {
+            $query->where('tipo', $tipo);
+        }
+
+        $movimientos = $query->get();
+
+        $pdf = Pdf::loadView('inventario.movimientos.pdf', [
+            'movimientos' => $movimientos,
+            'fecha' => now(),
+            'tipo' => $tipo ?? null,
+        ]);
+
+        return $pdf->download('reporte-movimientos-inventario.pdf');
     }
 }

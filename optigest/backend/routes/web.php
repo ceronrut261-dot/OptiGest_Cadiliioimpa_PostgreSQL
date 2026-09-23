@@ -1,4 +1,3 @@
-
 <?php
 
 use App\Http\Controllers\Auth\RegisteredUserController;
@@ -13,6 +12,8 @@ use App\Http\Controllers\Proveedores\ProveedorController;
 use App\Http\Controllers\Tickets\TicketController;
 use App\Http\Controllers\Inventario\InventarioImportController;
 use App\Http\Controllers\Inventario\HistorialPrecioController;
+use App\Http\Controllers\Usuarios\UsuarioController;
+use App\Http\Controllers\Salidas\SalidaMaterialController;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/dashboard');
@@ -24,21 +25,33 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::prefix('inventario')->name('inventario.')->group(function () {
 
-        // Materiales e historial de precios
         Route::middleware(['role:administrador|cotizador'])->group(function () {
 
-            // CRUD de materiales
             Route::resource('materiales', MaterialController::class)
                 ->parameters(['materiales' => 'material']);
 
-            // Historial de precios de un material
             Route::get(
                 'materiales/{material}/historial-precios',
                 [HistorialPrecioController::class, 'index']
             )->name('materiales.historial');
+
+            // Gestión de precios por material
+            Route::get(
+                'materiales/{material}/precios',
+                [MaterialController::class, 'precios']
+            )->name('materiales.precios');
+
+            Route::post(
+                'materiales/{material}/precios',
+                [MaterialController::class, 'guardarPrecio']
+            )->name('materiales.precios.guardar');
+
+            Route::delete(
+                'materiales/{material}/precios/{precio}',
+                [MaterialController::class, 'eliminarPrecio']
+            )->name('materiales.precios.eliminar');
         });
 
-        // Movimientos de inventario
         Route::middleware(['role:administrador|tecnico|cotizador'])->group(function () {
 
             Route::get(
@@ -55,9 +68,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 'movimientos',
                 [MovimientoInventarioController::class, 'store']
             )->name('movimientos.store');
+
+            // Exportar movimientos a PDF
+            Route::get(
+                'movimientos/pdf',
+                [MovimientoInventarioController::class, 'exportarPdf']
+            )->name('movimientos.pdf');
         });
 
-        // Reportes de inventario
         Route::middleware(['role:administrador'])->group(function () {
 
             Route::get(
@@ -71,7 +89,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
             )->name('reportes.stock.pdf');
         });
 
-        // Importación de inventario
         Route::middleware(['role:administrador'])->group(function () {
 
             Route::get(
@@ -86,17 +103,21 @@ Route::middleware(['auth', 'verified'])->group(function () {
         });
     });
 
-
     Route::middleware(['role:administrador|cotizador'])->group(function () {
 
         Route::resource('proveedores', ProveedorController::class)
             ->parameters(['proveedores' => 'proveedor']);
     });
 
-  
-    Route::resource('clientes', ClienteController::class)
-        ->except(['show', 'destroy']);
+    Route::resource('clientes', ClienteController::class)->except(['show']);
 
+    Route::middleware(['role:administrador'])->group(function () {
+
+        Route::patch(
+            'clientes/{cliente}/reactivar',
+            [ClienteController::class, 'reactivar']
+        )->name('clientes.reactivar');
+    });
 
     Route::resource('tickets', TicketController::class);
 
@@ -105,7 +126,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         [TicketController::class, 'cambiarEstado']
     )->name('tickets.estado');
 
-   
     Route::middleware(['role:administrador|cotizador'])->group(function () {
 
         Route::resource('cotizaciones', CotizacionController::class)
@@ -126,6 +146,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
             [CotizacionController::class, 'exportarPdf']
         )->name('cotizaciones.pdf');
     });
+
+    // Salidas de materiales
+    Route::resource('salidas', SalidaMaterialController::class)
+        ->only(['index', 'create', 'store']);
+
+    Route::get(
+        'salidas/{salida}/pdf',
+        [SalidaMaterialController::class, 'exportarPdf']
+    )->name('salidas.pdf');
 
     Route::get(
         'asistente',
@@ -148,6 +177,21 @@ Route::middleware(['auth', 'verified'])->group(function () {
             'usuarios',
             [RegisteredUserController::class, 'store']
         )->name('usuarios.store');
+
+        Route::get(
+            'usuarios',
+            [UsuarioController::class, 'index']
+        )->name('usuarios.index');
+
+        Route::delete(
+            'usuarios/{usuario}',
+            [UsuarioController::class, 'destroy']
+        )->name('usuarios.destroy');
+
+        Route::patch(
+            'usuarios/{usuario}/reactivar',
+            [UsuarioController::class, 'reactivar']
+        )->name('usuarios.reactivar');
     });
 });
 

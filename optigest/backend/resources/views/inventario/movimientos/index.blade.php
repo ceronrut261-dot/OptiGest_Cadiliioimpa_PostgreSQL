@@ -5,10 +5,29 @@
 @section('contenido')
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <h2 class="h4 mb-0">Movimientos de Inventario</h2>
-    <a href="{{ route('inventario.movimientos.create') }}" class="btn btn-primary btn-sm">
-        <i class="bi bi-plus-lg"></i> Nuevo movimiento
-    </a>
+    <div class="d-flex gap-2">
+        <a href="{{ route('inventario.movimientos.pdf', request()->query()) }}" class="btn btn-outline-danger btn-sm">
+            <i class="bi bi-file-earmark-pdf"></i> Exportar PDF
+        </a>
+        <a href="{{ route('inventario.movimientos.create') }}" class="btn btn-primary btn-sm">
+            <i class="bi bi-plus-lg"></i> Nuevo movimiento
+        </a>
+    </div>
 </div>
+
+<form method="GET" class="d-flex gap-2 mb-3 flex-wrap">
+    <select name="material_id" class="form-select form-select-sm" style="max-width:240px;" onchange="this.form.submit()">
+        <option value="">— Todos los materiales —</option>
+        @foreach($materiales as $material)
+            <option value="{{ $material->id }}" @selected(request('material_id') == $material->id)>{{ $material->nombre }}</option>
+        @endforeach
+    </select>
+    <select name="tipo" class="form-select form-select-sm" style="max-width:180px;" onchange="this.form.submit()">
+        <option value="">— Entradas y salidas —</option>
+        <option value="entrada" @selected(request('tipo') === 'entrada')>Solo entradas</option>
+        <option value="salida" @selected(request('tipo') === 'salida')>Solo salidas</option>
+    </select>
+</form>
 
 <div class="table-responsive">
     <table class="table table-sm table-hover bg-white align-middle">

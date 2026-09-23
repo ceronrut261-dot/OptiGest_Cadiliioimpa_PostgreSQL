@@ -1,4 +1,4 @@
-```php
+
 @extends('layouts.app')
 
 @section('titulo', 'Materiales')
@@ -73,4 +73,4 @@
 {{ $materiales->links() }}
 
 @endsection
-```
+

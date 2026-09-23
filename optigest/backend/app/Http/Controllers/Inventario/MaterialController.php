@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Inventario;
 
 use App\Http\Controllers\Controller;
 use App\Models\Material;
+use App\Models\PrecioProveedorMaterial;
 use App\Models\Proveedor;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -77,6 +78,41 @@ class MaterialController extends Controller
 
         return redirect()->route('inventario.materiales.index')
             ->with('status', "Material {$material->codigo} desactivado.");
+    }
+
+    /**
+     * Comparación de precios por proveedor para un material (lo que
+     * pidió la empresa: ver cuál proveedor conviene más).
+     */
+    public function precios(Material $material)
+    {
+        return view('inventario.materiales.precios', [
+            'material' => $material,
+            'precios' => $material->preciosProveedor()->with('proveedor')->orderBy('precio')->get(),
+            'proveedores' => Proveedor::where('activo', true)->orderBy('nombre')->get(),
+        ]);
+    }
+
+    public function guardarPrecio(Request $request, Material $material)
+    {
+        $datos = $request->validate([
+            'proveedor_id' => ['required', 'exists:proveedores,id'],
+            'precio' => ['required', 'numeric', 'min:0'],
+        ]);
+
+        PrecioProveedorMaterial::updateOrCreate(
+            ['material_id' => $material->id, 'proveedor_id' => $datos['proveedor_id']],
+            ['precio' => $datos['precio'], 'actualizado_en' => now()]
+        );
+
+        return back()->with('status', 'Precio de proveedor guardado.');
+    }
+
+    public function eliminarPrecio(Material $material, PrecioProveedorMaterial $precio)
+    {
+        $precio->delete();
+
+        return back()->with('status', 'Precio de proveedor eliminado.');
     }
 
     private function validarDatos(Request $request, ?int $idIgnorar = null): array

@@ -11,8 +11,12 @@ class Proveedor extends Model
 
     protected $table = 'proveedores';
 
+    // "nombre" = nombre del proveedor/empresa (lo que se muestra en
+    // cotizaciones, comparación de precios, etc. en todo el sistema).
+    // "nombre_contacto" = la persona de contacto dentro de ese proveedor.
     protected $fillable = [
-        'nombre', 'nit', 'contacto', 'telefono', 'email', 'direccion', 'activo',
+        'nombre', 'nombre_contacto', 'telefono', 'descripcion',
+        'nit', 'contacto', 'email', 'direccion', 'activo',
     ];
 
     protected function casts(): array

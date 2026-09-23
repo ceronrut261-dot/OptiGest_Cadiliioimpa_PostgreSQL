@@ -16,7 +16,7 @@ class MovimientoInventario extends Model
 
     protected $fillable = [
         'material_id', 'tipo', 'cantidad', 'motivo', 'fecha',
-        'usuario_id', 'cotizacion_id', 'stock_resultante',
+        'usuario_id', 'cotizacion_id', 'salida_id', 'stock_resultante',
     ];
 
     protected function casts(): array
@@ -41,5 +41,10 @@ class MovimientoInventario extends Model
     public function cotizacion()
     {
         return $this->belongsTo(Cotizacion::class);
+    }
+
+    public function salida()
+    {
+        return $this->belongsTo(SalidaMaterial::class, 'salida_id');
     }
 }

@@ -31,8 +31,19 @@ class CotizacionController extends Controller
 
     public function create()
     {
+        $materiales = Material::where('activo', true)->with('proveedor')->orderBy('nombre')->get();
+
+        // Para cada material, calcula cuál es el proveedor más barato
+        // (comparando el proveedor de catálogo contra los registrados
+        // en precios_proveedor_material). Esto es lo que pidió la
+        // empresa: sugerir al cotizador el proveedor que más conviene.
+        $mejoresProveedores = $materiales->mapWithKeys(function ($material) {
+            return [$material->id => $material->mejorProveedor()];
+        });
+
         return view('cotizaciones.create', [
-            'materiales' => Material::where('activo', true)->orderBy('nombre')->get(),
+            'materiales' => $materiales,
+            'mejoresProveedores' => $mejoresProveedores,
             'tickets' => Ticket::whereIn('estado', ['pendiente', 'asignado', 'en_proceso'])->with('cliente')->orderByDesc('id')->get(),
             'clientes' => Cliente::orderBy('nombre')->get(),
         ]);

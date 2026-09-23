@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <style>
         body { font-family: sans-serif; font-size: 11px; }
-        h1 { font-size: 16px; }
+        h1 { font-size: 16px; margin: 0; }
+        .encabezado { text-align: center; margin-bottom: 15px; }
+        .encabezado img { width: 160px; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th, td { border: 1px solid #ccc; padding: 4px 6px; text-align: left; }
         th { background: #f0f0f0; }
@@ -13,6 +15,10 @@
     </style>
 </head>
 <body>
+    <div class="encabezado">
+        <img src="{{ public_path('images/logo-cadiliompa.png') }}">
+    </div>
+
     <h1>Reporte de Inventario — OptiGest</h1>
     <p>Constru Fontanería Cadiliompa — Generado: {{ $fecha->format('d/m/Y H:i') }}</p>
 

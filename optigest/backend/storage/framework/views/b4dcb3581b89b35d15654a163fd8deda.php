@@ -22,11 +22,17 @@
         <a href="<?php echo e(route('inventario.materiales.index')); ?>" class="list-group-item list-group-item-action <?php echo e(str_starts_with($ruta, 'inventario.materiales') ? 'active' : ''); ?>">
             <i class="bi bi-box-seam me-2"></i> Materiales
         </a>
+
         <a href="<?php echo e(route('proveedores.index')); ?>" class="list-group-item list-group-item-action <?php echo e(str_starts_with($ruta, 'proveedores.') ? 'active' : ''); ?>">
             <i class="bi bi-truck me-2"></i> Proveedores
         </a>
+
         <a href="<?php echo e(route('cotizaciones.index')); ?>" class="list-group-item list-group-item-action <?php echo e(str_starts_with($ruta, 'cotizaciones.') ? 'active' : ''); ?>">
             <i class="bi bi-receipt me-2"></i> Cotizaciones
+        </a>
+
+        <a href="<?php echo e(route('salidas.index')); ?>" class="list-group-item list-group-item-action <?php echo e(str_starts_with($ruta, 'salidas.') ? 'active' : ''); ?>">
+            <i class="bi bi-box-arrow-up me-2"></i> Salidas de Materiales
         </a>
     <?php endif; ?>
 
@@ -41,9 +47,14 @@
     </a>
 
     <?php if (\Illuminate\Support\Facades\Blade::check('role', 'administrador')): ?>
+        <a href="<?php echo e(route('usuarios.index')); ?>" class="list-group-item list-group-item-action <?php echo e($ruta === 'usuarios.index' ? 'active' : ''); ?>">
+            <i class="bi bi-people-fill me-2"></i> Usuarios
+        </a>
+
         <a href="<?php echo e(route('usuarios.create')); ?>" class="list-group-item list-group-item-action <?php echo e(str_starts_with($ruta, 'usuarios.') ? 'active' : ''); ?>">
             <i class="bi bi-person-plus me-2"></i> Crear Usuario
         </a>
     <?php endif; ?>
 </div>
+
 <?php /**PATH C:\Users\ceron\Downloads\OptiGest_Cadiliompa_PostgreSQL\optigest\backend\resources\views/layouts/partials/menu.blade.php ENDPATH**/ ?>
