@@ -1,20 +1,18 @@
-<?php $__env->startSection('titulo', 'Nueva cotización'); ?>
+<?php $__env->startSection('titulo', 'Nueva salida de materiales'); ?>
 <?php $__env->startSection('contenido'); ?>
-<h2 class="h4 mb-4">Nueva cotización</h2>
+<h2 class="h4 mb-4">Nueva salida de materiales</h2>
 
-<form method="POST" action="<?php echo e(route('cotizaciones.store')); ?>" class="bg-white p-4 rounded shadow-sm" style="max-width:760px;" id="form-cotizacion">
+<form method="POST" action="<?php echo e(route('salidas.store')); ?>" class="bg-white p-4 rounded shadow-sm" style="max-width:760px;" id="form-salida">
     <?php echo csrf_field(); ?>
 
-    <div class="mb-3">
-        <label class="form-label small">Cliente</label>
-        <div class="d-flex gap-2">
-            <select name="cliente_id" class="form-select" required>
-                <option value="">— Selecciona un cliente —</option>
-                <?php $__currentLoopData = $clientes; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $cliente): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-                    <option value="<?php echo e($cliente->id); ?>"><?php echo e($cliente->nombre); ?><?php echo e($cliente->telefono ? ' — '.$cliente->telefono : ''); ?></option>
-                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
-            </select>
-            <a href="<?php echo e(route('clientes.create', ['origen' => 'cotizacion'])); ?>" target="_blank" class="btn btn-outline-secondary text-nowrap">Cliente nuevo</a>
+    <div class="row g-3 mb-3">
+        <div class="col-md-6">
+            <label class="form-label small">Nombre del proyecto</label>
+            <input type="text" name="proyecto" class="form-control" required>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label small">Persona que recibe</label>
+            <input type="text" name="persona_recibe" class="form-control" required>
         </div>
     </div>
 
@@ -23,24 +21,20 @@
         <select name="ticket_id" class="form-select">
             <option value="">— Ninguno —</option>
             <?php $__currentLoopData = $tickets; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $ticket): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-                <option value="<?php echo e($ticket->id); ?>"><?php echo e($ticket->codigo); ?> — <?php echo e($ticket->cliente->nombre); ?></option>
+                <option value="<?php echo e($ticket->id); ?>"><?php echo e($ticket->codigo); ?></option>
             <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
         </select>
     </div>
 
-    <label class="form-label small">Materiales</label>
+    <label class="form-label small">Materiales a entregar</label>
     <div id="lineas-materiales">
-        <div class="row g-2 mb-1 linea-material align-items-start">
+        <div class="row g-2 mb-2 linea-material">
             <div class="col-7">
-                <select name="materiales[0][id]" class="form-select form-select-sm select-material">
+                <select name="materiales[0][id]" class="form-select form-select-sm">
                     <?php $__currentLoopData = $materiales; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $material): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-                        <option value="<?php echo e($material->id); ?>" data-mejor="<?php echo e($mejoresProveedores[$material->id]['proveedor'] ?? ''); ?>" data-mejor-precio="<?php echo e($mejoresProveedores[$material->id]['precio'] ?? ''); ?>">
-                            <?php echo e($material->nombre); ?> (stock: <?php echo e($material->stock); ?>) — Q<?php echo e(number_format($material->precio,2)); ?>
-
-                        </option>
+                        <option value="<?php echo e($material->id); ?>"><?php echo e($material->nombre); ?> (stock: <?php echo e($material->stock); ?>) — Q<?php echo e(number_format($material->precio,2)); ?></option>
                     <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
                 </select>
-                <small class="text-success d-block mt-1 texto-mejor-proveedor"></small>
             </div>
             <div class="col-3">
                 <input type="number" name="materiales[0][cantidad]" min="1" value="1" class="form-control form-control-sm" placeholder="Cantidad">
@@ -49,28 +43,21 @@
     </div>
     <button type="button" class="btn btn-sm btn-outline-secondary mb-3" id="agregar-linea">+ Agregar material</button>
 
-    <div class="mb-3"><label class="form-label small">Observaciones</label><textarea name="observaciones" class="form-control" rows="2"></textarea></div>
+    <div class="mb-3">
+        <label class="form-label small">Observaciones</label>
+        <textarea name="observaciones" class="form-control" rows="2"></textarea>
+    </div>
 
-    <button type="submit" class="btn btn-primary">Crear cotización (borrador)</button>
-    <a href="<?php echo e(route('cotizaciones.index')); ?>" class="btn btn-outline-secondary">Cancelar</a>
+    <div class="mb-3">
+        <label class="form-label small">¿Falta algo por comprar?</label>
+        <textarea name="falta_comprar" class="form-control" rows="2" placeholder="Deja en blanco si no falta nada"></textarea>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Registrar salida y generar vale</button>
+    <a href="<?php echo e(route('salidas.index')); ?>" class="btn btn-outline-secondary">Cancelar</a>
 </form>
 
 <script>
-function actualizarSugerencia(select) {
-    const opcion = select.options[select.selectedIndex];
-    const texto = select.closest('.linea-material').querySelector('.texto-mejor-proveedor');
-    const proveedor = opcion.dataset.mejor;
-    const precio = opcion.dataset.mejorPrecio;
-    texto.textContent = proveedor
-        ? `Proveedor más conveniente: ${proveedor} — Q${parseFloat(precio).toFixed(2)}`
-        : '';
-}
-
-document.querySelectorAll('.select-material').forEach(sel => {
-    actualizarSugerencia(sel);
-    sel.addEventListener('change', () => actualizarSugerencia(sel));
-});
-
 let contador = 1;
 document.getElementById('agregar-linea').addEventListener('click', function () {
     const contenedor = document.getElementById('lineas-materiales');
@@ -81,9 +68,6 @@ document.getElementById('agregar-linea').addEventListener('click', function () {
         if (el.tagName === 'INPUT') el.value = 1;
     });
     contenedor.appendChild(clon);
-    const nuevoSelect = clon.querySelector('.select-material');
-    actualizarSugerencia(nuevoSelect);
-    nuevoSelect.addEventListener('change', () => actualizarSugerencia(nuevoSelect));
     contador++;
 });
 </script>

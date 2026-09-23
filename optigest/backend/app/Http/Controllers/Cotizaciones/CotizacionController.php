@@ -112,6 +112,18 @@ class CotizacionController extends Controller
                     ]);
                 }
 
+                // No permitir que la salida deje el stock por debajo del minimo
+                // configurado. Si el material ya esta en su minimo o el pedido
+                // lo dejaria debajo, se bloquea la aprobacion: primero hay que
+                // reabastecer antes de poder usarlo.
+                $stockRestante = $material->stock - $detalle->cantidad;
+
+                if ($stockRestante < $material->stock_minimo) {
+                    throw ValidationException::withMessages([
+                        'stock' => "No se puede aprobar: usar {$detalle->cantidad} de {$material->nombre} dejaria el stock en {$stockRestante}, por debajo del minimo permitido ({$material->stock_minimo}). Es necesario comprar mas antes de poder usarlo.",
+                    ]);
+                }
+
                 MovimientoInventarioController::registrarSalidaPorCotizacion(
                     $material, $detalle->cantidad, $request->user()->id, $cotizacion->id
                 );

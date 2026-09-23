@@ -1,21 +1,21 @@
-@extends('layouts.app')
-@section('titulo', 'Nueva cotización')
-@section('contenido')
+
+<?php $__env->startSection('titulo', 'Nueva cotización'); ?>
+<?php $__env->startSection('contenido'); ?>
 <h2 class="h4 mb-4">Nueva cotización</h2>
 
-<form method="POST" action="{{ route('cotizaciones.store') }}" class="bg-white p-4 rounded shadow-sm" style="max-width:760px;" id="form-cotizacion">
-    @csrf
+<form method="POST" action="<?php echo e(route('cotizaciones.store')); ?>" class="bg-white p-4 rounded shadow-sm" style="max-width:760px;" id="form-cotizacion">
+    <?php echo csrf_field(); ?>
 
     <div class="mb-3">
         <label class="form-label small">Cliente</label>
         <div class="d-flex gap-2">
             <select name="cliente_id" class="form-select" required>
                 <option value="">— Selecciona un cliente —</option>
-                @foreach($clientes as $cliente)
-                    <option value="{{ $cliente->id }}">{{ $cliente->nombre }}{{ $cliente->telefono ? ' — '.$cliente->telefono : '' }}</option>
-                @endforeach
+                <?php $__currentLoopData = $clientes; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $cliente): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                    <option value="<?php echo e($cliente->id); ?>"><?php echo e($cliente->nombre); ?><?php echo e($cliente->telefono ? ' — '.$cliente->telefono : ''); ?></option>
+                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
             </select>
-            <a href="{{ route('clientes.create', ['origen' => 'cotizacion']) }}" target="_blank" class="btn btn-outline-secondary text-nowrap">Cliente nuevo</a>
+            <a href="<?php echo e(route('clientes.create', ['origen' => 'cotizacion'])); ?>" target="_blank" class="btn btn-outline-secondary text-nowrap">Cliente nuevo</a>
         </div>
     </div>
 
@@ -23,9 +23,9 @@
         <label class="form-label small">Ticket relacionado (opcional)</label>
         <select name="ticket_id" class="form-select">
             <option value="">— Ninguno —</option>
-            @foreach($tickets as $ticket)
-                <option value="{{ $ticket->id }}">{{ $ticket->codigo }} — {{ $ticket->cliente->nombre }}</option>
-            @endforeach
+            <?php $__currentLoopData = $tickets; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $ticket): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                <option value="<?php echo e($ticket->id); ?>"><?php echo e($ticket->codigo); ?> — <?php echo e($ticket->cliente->nombre); ?></option>
+            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
         </select>
     </div>
 
@@ -34,11 +34,12 @@
         <div class="row g-2 mb-1 linea-material align-items-start">
             <div class="col-7">
                 <select name="materiales[0][id]" class="form-select form-select-sm select-material">
-                    @foreach($materiales as $material)
-                        <option value="{{ $material->id }}" data-mejor="{{ $mejoresProveedores[$material->id]['proveedor'] ?? '' }}" data-mejor-precio="{{ $mejoresProveedores[$material->id]['precio'] ?? '' }}">
-                            {{ $material->nombre }} (stock: {{ $material->stock }}) — Q{{ number_format($material->precio,2) }}
+                    <?php $__currentLoopData = $materiales; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $material): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                        <option value="<?php echo e($material->id); ?>" data-mejor="<?php echo e($mejoresProveedores[$material->id]['proveedor'] ?? ''); ?>" data-mejor-precio="<?php echo e($mejoresProveedores[$material->id]['precio'] ?? ''); ?>">
+                            <?php echo e($material->nombre); ?> (stock: <?php echo e($material->stock); ?>) — Q<?php echo e(number_format($material->precio,2)); ?>
+
                         </option>
-                    @endforeach
+                    <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
                 </select>
                 <small class="text-success d-block mt-1 texto-mejor-proveedor"></small>
             </div>
@@ -52,7 +53,7 @@
     <div class="mb-3"><label class="form-label small">Observaciones</label><textarea name="observaciones" class="form-control" rows="2"></textarea></div>
 
     <button type="submit" class="btn btn-primary">Crear cotización (borrador)</button>
-    <a href="{{ route('cotizaciones.index') }}" class="btn btn-outline-secondary">Cancelar</a>
+    <a href="<?php echo e(route('cotizaciones.index')); ?>" class="btn btn-outline-secondary">Cancelar</a>
 </form>
 
 <script>
@@ -87,4 +88,5 @@ document.getElementById('agregar-linea').addEventListener('click', function () {
     contador++;
 });
 </script>
-@endsection
+<?php $__env->stopSection(); ?>
+<?php echo $__env->make('layouts.app', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?><?php /**PATH C:\Users\ceron\Downloads\OptiGest_Cadiliompa_PostgreSQL\optigest\backend\resources\views/cotizaciones/create.blade.php ENDPATH**/ ?>
