@@ -26,14 +26,14 @@ class MovimientoInventarioController extends Controller
 
         return view('inventario.movimientos.index', [
             'movimientos' => $query->paginate(20)->withQueryString(),
-            'materiales' => Material::orderBy('nombre')->get(['id', 'nombre', 'codigo']),
+            'materiales' => Material::orderByRaw("CAST(regexp_replace(codigo, '[^0-9]', '', 'g') AS INTEGER) ASC")->get(['id', 'nombre', 'codigo']),
         ]);
     }
 
     public function create()
     {
         return view('inventario.movimientos.create', [
-            'materiales' => Material::where('activo', true)->orderBy('nombre')->get(),
+            'materiales' => Material::where('activo', true)->orderByRaw("CAST(regexp_replace(codigo, '[^0-9]', '', 'g') AS INTEGER) ASC")->get(),
         ]);
     }
 
@@ -49,10 +49,21 @@ class MovimientoInventarioController extends Controller
         DB::transaction(function () use ($datos, $request) {
             $material = Material::lockForUpdate()->findOrFail($datos['material_id']);
 
-            if ($datos['tipo'] === MovimientoInventario::TIPO_SALIDA && $datos['cantidad'] > $material->stock) {
-                throw ValidationException::withMessages([
-                    'cantidad' => "Stock insuficiente. Stock actual de {$material->nombre}: {$material->stock}.",
-                ]);
+            if ($datos['tipo'] === MovimientoInventario::TIPO_SALIDA) {
+                // Bloqueo pedido por la empresa: si el material ya está
+                // en nivel de stock bajo (stock <= stock_minimo), no se
+                // permite registrar una salida hasta que se reabastezca.
+                if ($material->stock <= $material->stock_minimo) {
+                    throw ValidationException::withMessages([
+                        'material_id' => "{$material->nombre} ya está en nivel de stock bajo (stock: {$material->stock}, mínimo: {$material->stock_minimo}). No se puede registrar una salida hasta reabastecerlo.",
+                    ]);
+                }
+
+                if ($datos['cantidad'] > $material->stock) {
+                    throw ValidationException::withMessages([
+                        'cantidad' => "Stock insuficiente. Stock actual de {$material->nombre}: {$material->stock}.",
+                    ]);
+                }
             }
 
             $material->stock = $datos['tipo'] === MovimientoInventario::TIPO_ENTRADA
@@ -93,10 +104,6 @@ class MovimientoInventarioController extends Controller
         ]);
     }
 
-    /**
-     * Igual que registrarSalidaPorCotizacion, pero para una salida de
-     * materiales (vale de entrega) en vez de una cotización aprobada.
-     */
     public static function registrarSalidaPorEntrega(Material $material, int $cantidad, int $usuarioId, int $salidaId): void
     {
         $material->refresh();
@@ -115,10 +122,6 @@ class MovimientoInventarioController extends Controller
         ]);
     }
 
-    /**
-     * Reporte de movimientos de inventario en PDF (con logo), respeta
-     * los mismos filtros que el listado en pantalla.
-     */
     public function exportarPdf(Request $request)
     {
         $query = MovimientoInventario::with(['material', 'usuario'])->orderByDesc('fecha');

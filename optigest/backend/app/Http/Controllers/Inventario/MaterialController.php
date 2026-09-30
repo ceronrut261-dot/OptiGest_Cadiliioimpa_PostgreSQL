@@ -13,7 +13,7 @@ class MaterialController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Material::with('proveedor')->orderBy('nombre');
+        $query = Material::with('proveedor')->orderByRaw("CAST(regexp_replace(codigo, '[^0-9]', '', 'g') AS INTEGER) ASC");
 
         if ($busqueda = $request->get('q')) {
             $query->where(function ($q) use ($busqueda) {

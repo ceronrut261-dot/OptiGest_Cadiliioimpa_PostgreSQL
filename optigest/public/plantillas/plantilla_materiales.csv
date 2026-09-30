@@ -1,0 +1,4 @@
+codigo,nombre,categoria,descripcion,precio,stock,stock_minimo,unidad_medida,proveedor
+MAT-001,Tubo PVC 1/2",Tuberia,Tubo de PVC para agua fria,8.50,120,20,unidad,Distribuidora Central
+MAT-002,Codo PVC 90 grados,Accesorios,Codo de PVC 1/2 pulgada,2.25,80,15,unidad,Distribuidora Central
+MAT-003,Cinta teflon,Consumibles,Cinta selladora de roscas,1.10,50,10,rollo,Ferreteria El Tornillo

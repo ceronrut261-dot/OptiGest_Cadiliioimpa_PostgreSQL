@@ -31,7 +31,7 @@ class CotizacionController extends Controller
 
     public function create()
     {
-        $materiales = Material::where('activo', true)->with('proveedor')->orderBy('nombre')->get();
+        $materiales = Material::where('activo', true)->with('proveedor')->orderByRaw("CAST(regexp_replace(codigo, '[^0-9]', '', 'g') AS INTEGER) ASC")->get();
 
         // Para cada material, calcula cuál es el proveedor más barato
         // (comparando el proveedor de catálogo contra los registrados
@@ -109,18 +109,6 @@ class CotizacionController extends Controller
                 if ($material->stock < $detalle->cantidad) {
                     throw ValidationException::withMessages([
                         'stock' => "Stock insuficiente de {$material->nombre} para aprobar la cotizacion (disponible: {$material->stock}, requerido: {$detalle->cantidad}).",
-                    ]);
-                }
-
-                // No permitir que la salida deje el stock por debajo del minimo
-                // configurado. Si el material ya esta en su minimo o el pedido
-                // lo dejaria debajo, se bloquea la aprobacion: primero hay que
-                // reabastecer antes de poder usarlo.
-                $stockRestante = $material->stock - $detalle->cantidad;
-
-                if ($stockRestante < $material->stock_minimo) {
-                    throw ValidationException::withMessages([
-                        'stock' => "No se puede aprobar: usar {$detalle->cantidad} de {$material->nombre} dejaria el stock en {$stockRestante}, por debajo del minimo permitido ({$material->stock_minimo}). Es necesario comprar mas antes de poder usarlo.",
                     ]);
                 }
 
