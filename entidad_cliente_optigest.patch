@@ -1,0 +1,731 @@
+diff --git a/optigest/backend/app/Http/Controllers/Clientes/ClienteController.php b/optigest/backend/app/Http/Controllers/Clientes/ClienteController.php
+new file mode 100644
+index 0000000..dfe4a65
+--- /dev/null
++++ b/optigest/backend/app/Http/Controllers/Clientes/ClienteController.php
+@@ -0,0 +1,73 @@
++<?php
++
++namespace App\Http\Controllers\Clientes;
++
++use App\Http\Controllers\Controller;
++use App\Models\Cliente;
++use Illuminate\Http\Request;
++
++class ClienteController extends Controller
++{
++    public function index(Request $request)
++    {
++        $query = Cliente::withCount(['tickets', 'cotizaciones'])->orderBy('nombre');
++
++        if ($busqueda = $request->get('q')) {
++            $query->where(function ($q) use ($busqueda) {
++                $q->where('nombre', 'like', "%{$busqueda}%")
++                    ->orWhere('telefono', 'like', "%{$busqueda}%");
++            });
++        }
++
++        return view('clientes.index', ['clientes' => $query->paginate(15)->withQueryString()]);
++    }
++
++    public function create()
++    {
++        return view('clientes.create');
++    }
++
++    public function store(Request $request)
++    {
++        $cliente = Cliente::create($this->validarDatos($request));
++
++        // Si el cliente se está creando desde el formulario de un ticket o
++        // una cotización (ver botón "Cliente nuevo" en esas vistas), regresa
++        // directo a esa pantalla con el cliente recién creado ya disponible.
++        if ($request->get('origen') === 'ticket') {
++            return redirect()->route('tickets.create')
++                ->with('status', "Cliente {$cliente->nombre} registrado. Ya puedes seleccionarlo en el ticket.");
++        }
++
++        if ($request->get('origen') === 'cotizacion') {
++            return redirect()->route('cotizaciones.create')
++                ->with('status', "Cliente {$cliente->nombre} registrado. Ya puedes seleccionarlo en la cotización.");
++        }
++
++        return redirect()->route('clientes.index')
++            ->with('status', "Cliente {$cliente->nombre} registrado correctamente.");
++    }
++
++    public function edit(Cliente $cliente)
++    {
++        return view('clientes.create', ['cliente' => $cliente]);
++    }
++
++    public function update(Request $request, Cliente $cliente)
++    {
++        $cliente->update($this->validarDatos($request));
++
++        return redirect()->route('clientes.index')
++            ->with('status', "Cliente {$cliente->nombre} actualizado correctamente.");
++    }
++
++    private function validarDatos(Request $request): array
++    {
++        return $request->validate([
++            'nombre' => ['required', 'string', 'max:255'],
++            'telefono' => ['nullable', 'string', 'max:20'],
++            'direccion' => ['nullable', 'string', 'max:255'],
++            'email' => ['nullable', 'email', 'max:255'],
++        ]);
++    }
++}
+diff --git a/optigest/backend/app/Http/Controllers/Cotizaciones/CotizacionController.php b/optigest/backend/app/Http/Controllers/Cotizaciones/CotizacionController.php
+index 591f506..3df2118 100644
+--- a/optigest/backend/app/Http/Controllers/Cotizaciones/CotizacionController.php
++++ b/optigest/backend/app/Http/Controllers/Cotizaciones/CotizacionController.php
+@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Cotizaciones;
+ 
+ use App\Http\Controllers\Controller;
+ use App\Http\Controllers\Inventario\MovimientoInventarioController;
++use App\Models\Cliente;
+ use App\Models\Cotizacion;
+ use App\Models\Material;
+ use App\Models\Ticket;
+@@ -16,7 +17,7 @@ class CotizacionController extends Controller
+ {
+     public function index(Request $request)
+     {
+-        $query = Cotizacion::with(['cotizador', 'ticket'])->orderByDesc('fecha');
++        $query = Cotizacion::with(['cotizador', 'ticket', 'cliente'])->orderByDesc('fecha');
+ 
+         if ($estado = $request->get('estado')) {
+             $query->where('estado', $estado);
+@@ -32,14 +33,15 @@ class CotizacionController extends Controller
+     {
+         return view('cotizaciones.create', [
+             'materiales' => Material::where('activo', true)->orderBy('nombre')->get(),
+-            'tickets' => Ticket::whereIn('estado', ['pendiente', 'asignado', 'en_proceso'])->orderByDesc('id')->get(),
++            'tickets' => Ticket::whereIn('estado', ['pendiente', 'asignado', 'en_proceso'])->with('cliente')->orderByDesc('id')->get(),
++            'clientes' => Cliente::orderBy('nombre')->get(),
+         ]);
+     }
+ 
+     public function store(Request $request)
+     {
+         $datos = $request->validate([
+-            'cliente' => ['required', 'string', 'max:255'],
++            'cliente_id' => ['required', 'exists:clientes,id'],
+             'ticket_id' => ['nullable', 'exists:tickets,id'],
+             'observaciones' => ['nullable', 'string'],
+             'materiales' => ['required', 'array', 'min:1'],
+@@ -50,7 +52,7 @@ class CotizacionController extends Controller
+         $cotizacion = DB::transaction(function () use ($datos, $request) {
+             $cotizacion = Cotizacion::create([
+                 'codigo' => Cotizacion::generarCodigo(),
+-                'cliente' => $datos['cliente'],
++                'cliente_id' => $datos['cliente_id'],
+                 'ticket_id' => $datos['ticket_id'] ?? null,
+                 'cotizador_id' => $request->user()->id,
+                 'estado' => 'borrador',
+@@ -80,7 +82,7 @@ class CotizacionController extends Controller
+ 
+     public function show(Cotizacion $cotizacion)
+     {
+-        return view('cotizaciones.show', ['cotizacion' => $cotizacion->load(['detalles.material', 'cotizador', 'ticket'])]);
++        return view('cotizaciones.show', ['cotizacion' => $cotizacion->load(['detalles.material', 'cotizador', 'ticket', 'cliente'])]);
+     }
+ 
+     public function aprobar(Request $request, Cotizacion $cotizacion)
+@@ -121,7 +123,7 @@ class CotizacionController extends Controller
+ 
+     public function exportarPdf(Cotizacion $cotizacion)
+     {
+-        $cotizacion->load(['detalles.material', 'cotizador']);
++        $cotizacion->load(['detalles.material', 'cotizador', 'cliente']);
+         $pdf = Pdf::loadView('cotizaciones.pdf', ['cotizacion' => $cotizacion]);
+ 
+         return $pdf->download("cotizacion-{$cotizacion->codigo}.pdf");
+diff --git a/optigest/backend/app/Http/Controllers/DashboardController.php b/optigest/backend/app/Http/Controllers/DashboardController.php
+index 5901d65..ba969a1 100644
+--- a/optigest/backend/app/Http/Controllers/DashboardController.php
++++ b/optigest/backend/app/Http/Controllers/DashboardController.php
+@@ -35,7 +35,7 @@ class DashboardController extends Controller
+             'cotizacionesPorEstado' => $cotizacionesPorEstado,
+             'tiempoPromedioCotizacionHoras' => round($tiempoPromedioCotizacionHoras ?? 0, 2),
+             'materialesBajoStock' => Material::bajoStock()->where('activo', true)->orderBy('stock')->take(8)->get(),
+-            'ticketsRecientes' => Ticket::orderByDesc('created_at')->take(6)->get(),
++            'ticketsRecientes' => Ticket::with('cliente')->orderByDesc('created_at')->take(6)->get(),
+         ]);
+     }
+ }
+diff --git a/optigest/backend/app/Http/Controllers/Tickets/TicketController.php b/optigest/backend/app/Http/Controllers/Tickets/TicketController.php
+index 3c0fb5c..f201bc2 100644
+--- a/optigest/backend/app/Http/Controllers/Tickets/TicketController.php
++++ b/optigest/backend/app/Http/Controllers/Tickets/TicketController.php
+@@ -3,6 +3,7 @@
+ namespace App\Http\Controllers\Tickets;
+ 
+ use App\Http\Controllers\Controller;
++use App\Models\Cliente;
+ use App\Models\Ticket;
+ use App\Models\User;
+ use Illuminate\Http\Request;
+@@ -11,7 +12,7 @@ class TicketController extends Controller
+ {
+     public function index(Request $request)
+     {
+-        $query = Ticket::with('tecnico')->orderByDesc('created_at');
++        $query = Ticket::with(['tecnico', 'cliente'])->orderByDesc('created_at');
+ 
+         if ($estado = $request->get('estado')) {
+             $query->where('estado', $estado);
+@@ -25,15 +26,16 @@ class TicketController extends Controller
+ 
+     public function create()
+     {
+-        return view('tickets.create', ['tecnicos' => User::role('tecnico')->orderBy('name')->get()]);
++        return view('tickets.create', [
++            'tecnicos' => User::role('tecnico')->orderBy('name')->get(),
++            'clientes' => Cliente::orderBy('nombre')->get(),
++        ]);
+     }
+ 
+     public function store(Request $request)
+     {
+         $datos = $request->validate([
+-            'cliente' => ['required', 'string', 'max:255'],
+-            'telefono_cliente' => ['nullable', 'string', 'max:20'],
+-            'direccion' => ['nullable', 'string', 'max:255'],
++            'cliente_id' => ['required', 'exists:clientes,id'],
+             'descripcion' => ['required', 'string'],
+             'prioridad' => ['required', 'in:baja,media,alta,urgente'],
+             'tecnico_id' => ['nullable', 'exists:users,id'],
+@@ -51,7 +53,7 @@ class TicketController extends Controller
+ 
+     public function show(Ticket $ticket)
+     {
+-        return view('tickets.show', ['ticket' => $ticket->load(['tecnico', 'cotizaciones'])]);
++        return view('tickets.show', ['ticket' => $ticket->load(['tecnico', 'cliente', 'cotizaciones'])]);
+     }
+ 
+     public function edit(Ticket $ticket)
+@@ -61,6 +63,7 @@ class TicketController extends Controller
+         return view('tickets.create', [
+             'ticket' => $ticket,
+             'tecnicos' => User::role('tecnico')->orderBy('name')->get(),
++            'clientes' => Cliente::orderBy('nombre')->get(),
+         ]);
+     }
+ 
+@@ -69,9 +72,7 @@ class TicketController extends Controller
+         $this->authorize('update', $ticket);
+ 
+         $datos = $request->validate([
+-            'cliente' => ['required', 'string', 'max:255'],
+-            'telefono_cliente' => ['nullable', 'string', 'max:20'],
+-            'direccion' => ['nullable', 'string', 'max:255'],
++            'cliente_id' => ['required', 'exists:clientes,id'],
+             'descripcion' => ['required', 'string'],
+             'prioridad' => ['required', 'in:baja,media,alta,urgente'],
+             'tecnico_id' => ['nullable', 'exists:users,id'],
+diff --git a/optigest/backend/app/Models/Cliente.php b/optigest/backend/app/Models/Cliente.php
+new file mode 100644
+index 0000000..55f3dff
+--- /dev/null
++++ b/optigest/backend/app/Models/Cliente.php
+@@ -0,0 +1,25 @@
++<?php
++
++namespace App\Models;
++
++use Illuminate\Database\Eloquent\Factories\HasFactory;
++use Illuminate\Database\Eloquent\Model;
++
++class Cliente extends Model
++{
++    use HasFactory;
++
++    protected $table = 'clientes';
++
++    protected $fillable = ['nombre', 'telefono', 'direccion', 'email'];
++
++    public function tickets()
++    {
++        return $this->hasMany(Ticket::class);
++    }
++
++    public function cotizaciones()
++    {
++        return $this->hasMany(Cotizacion::class);
++    }
++}
+diff --git a/optigest/backend/app/Models/Cotizacion.php b/optigest/backend/app/Models/Cotizacion.php
+index 1735da7..9e4e4c6 100644
+--- a/optigest/backend/app/Models/Cotizacion.php
++++ b/optigest/backend/app/Models/Cotizacion.php
+@@ -16,7 +16,7 @@ class Cotizacion extends Model
+     const ESTADOS = ['borrador', 'enviada', 'aprobada', 'rechazada'];
+ 
+     protected $fillable = [
+-        'codigo', 'cliente', 'ticket_id', 'cotizador_id', 'estado',
++        'codigo', 'cliente_id', 'ticket_id', 'cotizador_id', 'estado',
+         'subtotal', 'total', 'fecha', 'observaciones',
+     ];
+ 
+@@ -29,6 +29,11 @@ class Cotizacion extends Model
+         ];
+     }
+ 
++    public function cliente()
++    {
++        return $this->belongsTo(Cliente::class);
++    }
++
+     public function ticket()
+     {
+         return $this->belongsTo(Ticket::class);
+diff --git a/optigest/backend/app/Models/Ticket.php b/optigest/backend/app/Models/Ticket.php
+index 4d92a7f..e49d0e2 100644
+--- a/optigest/backend/app/Models/Ticket.php
++++ b/optigest/backend/app/Models/Ticket.php
+@@ -14,7 +14,7 @@ class Ticket extends Model
+     const ESTADOS = ['pendiente', 'asignado', 'en_proceso', 'completado', 'cancelado'];
+ 
+     protected $fillable = [
+-        'codigo', 'cliente', 'telefono_cliente', 'direccion', 'descripcion',
++        'codigo', 'cliente_id', 'descripcion',
+         'prioridad', 'estado', 'tecnico_id', 'fecha_programada', 'fecha_completado',
+     ];
+ 
+@@ -26,6 +26,11 @@ class Ticket extends Model
+         ];
+     }
+ 
++    public function cliente()
++    {
++        return $this->belongsTo(Cliente::class);
++    }
++
+     public function tecnico()
+     {
+         return $this->belongsTo(User::class, 'tecnico_id');
+diff --git a/optigest/backend/database/migrations/2026_09_02_010000_create_clientes_table.php b/optigest/backend/database/migrations/2026_09_02_010000_create_clientes_table.php
+new file mode 100644
+index 0000000..0493823
+--- /dev/null
++++ b/optigest/backend/database/migrations/2026_09_02_010000_create_clientes_table.php
+@@ -0,0 +1,27 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++return new class extends Migration
++{
++    public function up(): void
++    {
++        Schema::create('clientes', function (Blueprint $table) {
++            $table->id();
++            $table->string('nombre');
++            $table->string('telefono', 20)->nullable();
++            $table->string('direccion')->nullable();
++            $table->string('email')->nullable();
++            $table->timestamps();
++
++            $table->index('nombre');
++        });
++    }
++
++    public function down(): void
++    {
++        Schema::dropIfExists('clientes');
++    }
++};
+diff --git a/optigest/backend/database/migrations/2026_09_02_010100_add_cliente_id_and_migrate_data.php b/optigest/backend/database/migrations/2026_09_02_010100_add_cliente_id_and_migrate_data.php
+new file mode 100644
+index 0000000..1a83871
+--- /dev/null
++++ b/optigest/backend/database/migrations/2026_09_02_010100_add_cliente_id_and_migrate_data.php
+@@ -0,0 +1,135 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\DB;
++use Illuminate\Support\Facades\Schema;
++
++/**
++ * Antes, "cliente" era solo un campo de texto libre repetido en tickets y
++ * cotizaciones. Esta migración:
++ *  1. Agrega cliente_id (nullable primero) a tickets y cotizaciones.
++ *  2. Recorre los tickets/cotizaciones existentes, crea un registro en
++ *     "clientes" por cada nombre distinto (reutilizando teléfono/dirección
++ *     si el ticket los tenía), y enlaza cliente_id.
++ *  3. Vuelve cliente_id obligatorio y elimina las columnas de texto viejas
++ *     (cliente, telefono_cliente, direccion), que ya quedaron redundantes.
++ *
++ * No se pierde ningún dato: todo lo que estaba en las columnas de texto
++ * termina en la tabla "clientes".
++ */
++return new class extends Migration
++{
++    public function up(): void
++    {
++        Schema::table('tickets', function (Blueprint $table) {
++            $table->foreignId('cliente_id')->nullable()->constrained('clientes')->restrictOnDelete();
++        });
++
++        Schema::table('cotizaciones', function (Blueprint $table) {
++            $table->foreignId('cliente_id')->nullable()->constrained('clientes')->restrictOnDelete();
++        });
++
++        // --- Migrar datos existentes ---
++        // nombre de cliente (normalizado en minúsculas y sin espacios extra) => id en "clientes"
++        $clientesCreados = [];
++
++        $resolverClienteId = function (?string $nombre, ?string $telefono, ?string $direccion) use (&$clientesCreados) {
++            $nombre = trim((string) $nombre);
++            if ($nombre === '') {
++                $nombre = 'Cliente sin nombre';
++            }
++            $clave = mb_strtolower($nombre);
++
++            if (isset($clientesCreados[$clave])) {
++                // Si ya existe y nos falta teléfono/dirección, completamos con lo que tengamos.
++                $id = $clientesCreados[$clave];
++                if ($telefono || $direccion) {
++                    DB::table('clientes')->where('id', $id)->update(array_filter([
++                        'telefono' => $telefono,
++                        'direccion' => $direccion,
++                    ]));
++                }
++
++                return $id;
++            }
++
++            $id = DB::table('clientes')->insertGetId([
++                'nombre' => $nombre,
++                'telefono' => $telefono,
++                'direccion' => $direccion,
++                'created_at' => now(),
++                'updated_at' => now(),
++            ]);
++
++            $clientesCreados[$clave] = $id;
++
++            return $id;
++        };
++
++        foreach (DB::table('tickets')->orderBy('id')->get() as $ticket) {
++            $clienteId = $resolverClienteId($ticket->cliente, $ticket->telefono_cliente, $ticket->direccion);
++            DB::table('tickets')->where('id', $ticket->id)->update(['cliente_id' => $clienteId]);
++        }
++
++        foreach (DB::table('cotizaciones')->orderBy('id')->get() as $cotizacion) {
++            if ($cotizacion->ticket_id && $clienteIdDelTicket = DB::table('tickets')->where('id', $cotizacion->ticket_id)->value('cliente_id')) {
++                $clienteId = $clienteIdDelTicket;
++            } else {
++                $clienteId = $resolverClienteId($cotizacion->cliente, null, null);
++            }
++            DB::table('cotizaciones')->where('id', $cotizacion->id)->update(['cliente_id' => $clienteId]);
++        }
++
++        // --- Ya migrados los datos: columnas obligatorias y limpieza ---
++        // Se usa SQL directo (en vez de ->change()) porque ->change() requiere
++        // el paquete doctrine/dbal, que este proyecto no tiene instalado.
++        DB::statement('ALTER TABLE tickets ALTER COLUMN cliente_id SET NOT NULL');
++        DB::statement('ALTER TABLE cotizaciones ALTER COLUMN cliente_id SET NOT NULL');
++
++        Schema::table('tickets', function (Blueprint $table) {
++            $table->dropColumn(['cliente', 'telefono_cliente', 'direccion']);
++        });
++
++        Schema::table('cotizaciones', function (Blueprint $table) {
++            $table->dropColumn('cliente');
++        });
++    }
++
++    public function down(): void
++    {
++        Schema::table('tickets', function (Blueprint $table) {
++            $table->string('cliente')->nullable();
++            $table->string('telefono_cliente', 20)->nullable();
++            $table->string('direccion')->nullable();
++        });
++
++        Schema::table('cotizaciones', function (Blueprint $table) {
++            $table->string('cliente')->nullable();
++        });
++
++        foreach (DB::table('tickets')->orderBy('id')->get() as $ticket) {
++            $cliente = DB::table('clientes')->find($ticket->cliente_id);
++            DB::table('tickets')->where('id', $ticket->id)->update([
++                'cliente' => $cliente->nombre ?? '',
++                'telefono_cliente' => $cliente->telefono ?? null,
++                'direccion' => $cliente->direccion ?? null,
++            ]);
++        }
++
++        foreach (DB::table('cotizaciones')->orderBy('id')->get() as $cotizacion) {
++            $cliente = DB::table('clientes')->find($cotizacion->cliente_id);
++            DB::table('cotizaciones')->where('id', $cotizacion->id)->update([
++                'cliente' => $cliente->nombre ?? '',
++            ]);
++        }
++
++        Schema::table('tickets', function (Blueprint $table) {
++            $table->dropConstrainedForeignId('cliente_id');
++        });
++
++        Schema::table('cotizaciones', function (Blueprint $table) {
++            $table->dropConstrainedForeignId('cliente_id');
++        });
++    }
++};
+diff --git a/optigest/backend/resources/views/clientes/create.blade.php b/optigest/backend/resources/views/clientes/create.blade.php
+new file mode 100644
+index 0000000..d6a1b3c
+--- /dev/null
++++ b/optigest/backend/resources/views/clientes/create.blade.php
+@@ -0,0 +1,18 @@
++@extends('layouts.app')
++@section('titulo', isset($cliente) ? 'Editar cliente' : 'Nuevo cliente')
++@section('contenido')
++<h2 class="h4 mb-4">{{ isset($cliente) ? 'Editar cliente' : 'Nuevo cliente' }}</h2>
++<form method="POST" action="{{ isset($cliente) ? route('clientes.update', $cliente) : route('clientes.store') }}" class="bg-white p-4 rounded shadow-sm" style="max-width:520px;">
++    @csrf
++    @if(isset($cliente)) @method('PUT') @endif
++    @if(!isset($cliente) && request('origen'))
++        <input type="hidden" name="origen" value="{{ request('origen') }}">
++    @endif
++    <div class="mb-3"><label class="form-label small">Nombre</label><input type="text" name="nombre" value="{{ old('nombre', $cliente->nombre ?? '') }}" class="form-control" required autofocus></div>
++    <div class="mb-3"><label class="form-label small">Teléfono</label><input type="text" name="telefono" value="{{ old('telefono', $cliente->telefono ?? '') }}" class="form-control"></div>
++    <div class="mb-3"><label class="form-label small">Dirección</label><input type="text" name="direccion" value="{{ old('direccion', $cliente->direccion ?? '') }}" class="form-control"></div>
++    <div class="mb-3"><label class="form-label small">Email</label><input type="email" name="email" value="{{ old('email', $cliente->email ?? '') }}" class="form-control"></div>
++    <button type="submit" class="btn btn-primary">Guardar</button>
++    <a href="{{ route('clientes.index') }}" class="btn btn-outline-secondary">Cancelar</a>
++</form>
++@endsection
+diff --git a/optigest/backend/resources/views/clientes/index.blade.php b/optigest/backend/resources/views/clientes/index.blade.php
+new file mode 100644
+index 0000000..4d63abd
+--- /dev/null
++++ b/optigest/backend/resources/views/clientes/index.blade.php
+@@ -0,0 +1,35 @@
++@extends('layouts.app')
++@section('titulo', 'Clientes')
++@section('contenido')
++<div class="d-flex justify-content-between align-items-center mb-3">
++    <h2 class="h4 mb-0">Clientes</h2>
++    <a href="{{ route('clientes.create') }}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> Nuevo cliente</a>
++</div>
++
++<form method="GET" class="mb-3" style="max-width:320px;">
++    <input type="text" name="q" value="{{ request('q') }}" class="form-control form-control-sm" placeholder="Buscar por nombre o teléfono...">
++</form>
++
++<div class="table-responsive">
++<table class="table table-sm table-hover bg-white">
++    <thead class="table-light"><tr><th>Nombre</th><th>Teléfono</th><th>Dirección</th><th class="text-end">Tickets</th><th class="text-end">Cotizaciones</th><th></th></tr></thead>
++    <tbody>
++    @forelse($clientes as $cliente)
++        <tr>
++            <td>{{ $cliente->nombre }}</td>
++            <td>{{ $cliente->telefono }}</td>
++            <td>{{ $cliente->direccion }}</td>
++            <td class="text-end">{{ $cliente->tickets_count }}</td>
++            <td class="text-end">{{ $cliente->cotizaciones_count }}</td>
++            <td class="text-end">
++                <a href="{{ route('clientes.edit', $cliente) }}" class="btn btn-sm btn-outline-primary">Editar</a>
++            </td>
++        </tr>
++    @empty
++        <tr><td colspan="6" class="text-center text-muted py-4">No hay clientes registrados.</td></tr>
++    @endforelse
++    </tbody>
++</table>
++</div>
++{{ $clientes->links() }}
++@endsection
+diff --git a/optigest/backend/resources/views/cotizaciones/create.blade.php b/optigest/backend/resources/views/cotizaciones/create.blade.php
+index 7cdc362..36109c3 100644
+--- a/optigest/backend/resources/views/cotizaciones/create.blade.php
++++ b/optigest/backend/resources/views/cotizaciones/create.blade.php
+@@ -6,14 +6,25 @@
+ <form method="POST" action="{{ route('cotizaciones.store') }}" class="bg-white p-4 rounded shadow-sm" style="max-width:720px;" id="form-cotizacion">
+     @csrf
+ 
+-    <div class="mb-3"><label class="form-label small">Cliente</label><input type="text" name="cliente" class="form-control" required></div>
++    <div class="mb-3">
++        <label class="form-label small">Cliente</label>
++        <div class="d-flex gap-2">
++            <select name="cliente_id" class="form-select" required>
++                <option value="">— Selecciona un cliente —</option>
++                @foreach($clientes as $cliente)
++                    <option value="{{ $cliente->id }}">{{ $cliente->nombre }}{{ $cliente->telefono ? ' — '.$cliente->telefono : '' }}</option>
++                @endforeach
++            </select>
++            <a href="{{ route('clientes.create', ['origen' => 'cotizacion']) }}" target="_blank" class="btn btn-outline-secondary text-nowrap">Cliente nuevo</a>
++        </div>
++    </div>
+ 
+     <div class="mb-3">
+         <label class="form-label small">Ticket relacionado (opcional)</label>
+         <select name="ticket_id" class="form-select">
+             <option value="">— Ninguno —</option>
+             @foreach($tickets as $ticket)
+-                <option value="{{ $ticket->id }}">{{ $ticket->codigo }} — {{ $ticket->cliente }}</option>
++                <option value="{{ $ticket->id }}">{{ $ticket->codigo }} — {{ $ticket->cliente->nombre }}</option>
+             @endforeach
+         </select>
+     </div>
+diff --git a/optigest/backend/resources/views/cotizaciones/index.blade.php b/optigest/backend/resources/views/cotizaciones/index.blade.php
+index 8803fda..0511085 100644
+--- a/optigest/backend/resources/views/cotizaciones/index.blade.php
++++ b/optigest/backend/resources/views/cotizaciones/index.blade.php
+@@ -12,7 +12,7 @@
+     @forelse($cotizaciones as $cot)
+         <tr>
+             <td>{{ $cot->codigo }}</td>
+-            <td>{{ $cot->cliente }}</td>
++            <td>{{ $cot->cliente->nombre }}</td>
+             <td><span class="badge bg-secondary text-capitalize">{{ $cot->estado }}</span></td>
+             <td class="text-end">Q{{ number_format($cot->total, 2) }}</td>
+             <td>{{ $cot->fecha->format('d/m/Y') }}</td>
+diff --git a/optigest/backend/resources/views/cotizaciones/pdf.blade.php b/optigest/backend/resources/views/cotizaciones/pdf.blade.php
+index 32787bd..33cdfdb 100644
+--- a/optigest/backend/resources/views/cotizaciones/pdf.blade.php
++++ b/optigest/backend/resources/views/cotizaciones/pdf.blade.php
+@@ -14,7 +14,7 @@
+ <body>
+     <h1>Cotización {{ $cotizacion->codigo }} — OptiGest</h1>
+     <p>Constru Fontanería Cadiliompa</p>
+-    <p><strong>Cliente:</strong> {{ $cotizacion->cliente }} &nbsp; <strong>Fecha:</strong> {{ $cotizacion->fecha->format('d/m/Y') }}</p>
++    <p><strong>Cliente:</strong> {{ $cotizacion->cliente->nombre }} &nbsp; <strong>Fecha:</strong> {{ $cotizacion->fecha->format('d/m/Y') }}</p>
+ 
+     <table>
+         <thead><tr><th>Material</th><th class="text-end">Cantidad</th><th class="text-end">Precio unit.</th><th class="text-end">Subtotal</th></tr></thead>
+diff --git a/optigest/backend/resources/views/cotizaciones/show.blade.php b/optigest/backend/resources/views/cotizaciones/show.blade.php
+index 7cb4482..dd18f56 100644
+--- a/optigest/backend/resources/views/cotizaciones/show.blade.php
++++ b/optigest/backend/resources/views/cotizaciones/show.blade.php
+@@ -20,7 +20,7 @@
+ 
+ <div class="card border-0 shadow-sm mb-3">
+     <div class="card-body">
+-        <p><strong>Cliente:</strong> {{ $cotizacion->cliente }}</p>
++        <p><strong>Cliente:</strong> {{ $cotizacion->cliente->nombre }}</p>
+         <p><strong>Estado:</strong> <span class="badge bg-secondary text-capitalize">{{ $cotizacion->estado }}</span></p>
+         <p><strong>Cotizador:</strong> {{ $cotizacion->cotizador->name }}</p>
+         @if($cotizacion->ticket)
+diff --git a/optigest/backend/resources/views/dashboard.blade.php b/optigest/backend/resources/views/dashboard.blade.php
+index 7c789eb..faeae02 100644
+--- a/optigest/backend/resources/views/dashboard.blade.php
++++ b/optigest/backend/resources/views/dashboard.blade.php
+@@ -106,7 +106,7 @@
+             <div class="list-group list-group-flush">
+                 @forelse($ticketsRecientes as $ticket)
+                     <a href="{{ route('tickets.show', $ticket) }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+-                        <span>{{ $ticket->codigo }} — {{ $ticket->cliente }}</span>
++                        <span>{{ $ticket->codigo }} — {{ $ticket->cliente->nombre }}</span>
+                         <span class="badge bg-secondary text-capitalize">{{ str_replace('_', ' ', $ticket->estado) }}</span>
+                     </a>
+                 @empty
+diff --git a/optigest/backend/resources/views/layouts/partials/menu.blade.php b/optigest/backend/resources/views/layouts/partials/menu.blade.php
+index 0e83af9..49b4185 100644
+--- a/optigest/backend/resources/views/layouts/partials/menu.blade.php
++++ b/optigest/backend/resources/views/layouts/partials/menu.blade.php
+@@ -8,6 +8,10 @@
+         <i class="bi bi-tools me-2"></i> Tickets / Servicios
+     </a>
+ 
++    <a href="{{ route('clientes.index') }}" class="list-group-item list-group-item-action {{ str_starts_with($ruta, 'clientes.') ? 'active' : '' }}">
++        <i class="bi bi-people me-2"></i> Clientes
++    </a>
++
+     @hasanyrole('administrador|tecnico|cotizador')
+         <a href="{{ route('inventario.movimientos.index') }}" class="list-group-item list-group-item-action {{ str_starts_with($ruta, 'inventario.movimientos') ? 'active' : '' }}">
+             <i class="bi bi-arrow-left-right me-2"></i> Movimientos Inventario
+diff --git a/optigest/backend/resources/views/tickets/create.blade.php b/optigest/backend/resources/views/tickets/create.blade.php
+index 9c9e2e6..a8769ae 100644
+--- a/optigest/backend/resources/views/tickets/create.blade.php
++++ b/optigest/backend/resources/views/tickets/create.blade.php
+@@ -5,10 +5,20 @@
+ <form method="POST" action="{{ isset($ticket) ? route('tickets.update', $ticket) : route('tickets.store') }}" class="bg-white p-4 rounded shadow-sm" style="max-width:640px;">
+     @csrf
+     @if(isset($ticket)) @method('PUT') @endif
+-    <div class="mb-3"><label class="form-label small">Cliente</label><input type="text" name="cliente" value="{{ old('cliente', $ticket->cliente ?? '') }}" class="form-control" required></div>
+-    <div class="row">
+-        <div class="col-md-6 mb-3"><label class="form-label small">Teléfono</label><input type="text" name="telefono_cliente" value="{{ old('telefono_cliente', $ticket->telefono_cliente ?? '') }}" class="form-control"></div>
+-        <div class="col-md-6 mb-3"><label class="form-label small">Dirección</label><input type="text" name="direccion" value="{{ old('direccion', $ticket->direccion ?? '') }}" class="form-control"></div>
++    <div class="mb-3">
++        <label class="form-label small">Cliente</label>
++        <div class="d-flex gap-2">
++            <select name="cliente_id" class="form-select" required>
++                <option value="">— Selecciona un cliente —</option>
++                @foreach($clientes as $cliente)
++                    <option value="{{ $cliente->id }}" {{ old('cliente_id', $ticket->cliente_id ?? '') == $cliente->id ? 'selected' : '' }}>
++                        {{ $cliente->nombre }}{{ $cliente->telefono ? ' — '.$cliente->telefono : '' }}
++                    </option>
++                @endforeach
++            </select>
++            <a href="{{ route('clientes.create', ['origen' => 'ticket']) }}" target="_blank" class="btn btn-outline-secondary text-nowrap">Cliente nuevo</a>
++        </div>
++        <div class="form-text">¿No aparece? Créalo en la pestaña nueva y refresca esta lista.</div>
+     </div>
+     <div class="mb-3"><label class="form-label small">Descripción</label><textarea name="descripcion" class="form-control" rows="3" required>{{ old('descripcion', $ticket->descripcion ?? '') }}</textarea></div>
+     <div class="row">
+diff --git a/optigest/backend/resources/views/tickets/index.blade.php b/optigest/backend/resources/views/tickets/index.blade.php
+index e8c70a9..6eb43de 100644
+--- a/optigest/backend/resources/views/tickets/index.blade.php
++++ b/optigest/backend/resources/views/tickets/index.blade.php
+@@ -12,7 +12,7 @@
+     @forelse($tickets as $ticket)
+         <tr>
+             <td>{{ $ticket->codigo }}</td>
+-            <td>{{ $ticket->cliente }}</td>
++            <td>{{ $ticket->cliente->nombre }}</td>
+             <td class="text-capitalize">{{ $ticket->prioridad }}</td>
+             <td><span class="badge bg-secondary text-capitalize">{{ str_replace('_',' ',$ticket->estado) }}</span></td>
+             <td>{{ $ticket->tecnico?->name ?? '—' }}</td>
+diff --git a/optigest/backend/resources/views/tickets/show.blade.php b/optigest/backend/resources/views/tickets/show.blade.php
+index e7ab406..bb800ca 100644
+--- a/optigest/backend/resources/views/tickets/show.blade.php
++++ b/optigest/backend/resources/views/tickets/show.blade.php
+@@ -7,7 +7,15 @@
+ </div>
+ <div class="card border-0 shadow-sm mb-3">
+     <div class="card-body">
+-        <p><strong>Cliente:</strong> {{ $ticket->cliente }}</p>
++        <p><strong>Cliente:</strong> {{ $ticket->cliente->nombre }}
++            <a href="{{ route('clientes.edit', $ticket->cliente) }}" class="small">(editar)</a>
++        </p>
++        @if($ticket->cliente->telefono)
++            <p><strong>Teléfono:</strong> {{ $ticket->cliente->telefono }}</p>
++        @endif
++        @if($ticket->cliente->direccion)
++            <p><strong>Dirección:</strong> {{ $ticket->cliente->direccion }}</p>
++        @endif
+         <p><strong>Descripción:</strong> {{ $ticket->descripcion }}</p>
+         <p><strong>Técnico:</strong> {{ $ticket->tecnico?->name ?? '—' }}</p>
+         <p><strong>Estado actual:</strong> <span class="badge bg-secondary text-capitalize">{{ str_replace('_',' ',$ticket->estado) }}</span></p>
+diff --git a/optigest/backend/routes/web.php b/optigest/backend/routes/web.php
+index 3caaddf..9794f52 100644
+--- a/optigest/backend/routes/web.php
++++ b/optigest/backend/routes/web.php
+@@ -1,6 +1,7 @@
+ <?php
+ 
+ use App\Http\Controllers\Auth\RegisteredUserController;
++use App\Http\Controllers\Clientes\ClienteController;
+ use App\Http\Controllers\Cotizaciones\CotizacionController;
+ use App\Http\Controllers\DashboardController;
+ use App\Http\Controllers\IA\AsistenteController;
+@@ -42,6 +43,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
+             ->parameters(['proveedores' => 'proveedor']);
+     });
+ 
++    Route::resource('clientes', ClienteController::class)->except(['show', 'destroy']);
++
+     Route::resource('tickets', TicketController::class);
+     Route::patch('tickets/{ticket}/estado', [TicketController::class, 'cambiarEstado'])->name('tickets.estado');
+ 
