@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Cotizacion;
 use App\Models\Material;
 use App\Models\Ticket;
+use App\Models\TicketGasto;
 use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
@@ -29,7 +30,23 @@ class DashboardController extends Controller
             ->selectRaw('AVG(EXTRACT(EPOCH FROM (updated_at - created_at)) / 3600) as promedio')
             ->value('promedio');
 
+        // Indicadores de dinero: solo se muestran a administrador/cotizador.
+        $veFinanzas = auth()->user()->hasRole(['administrador', 'cotizador']);
+        $finanzas = $veFinanzas ? [
+            'ingreso_mes' => (float) Cotizacion::where('estado', 'aprobada')
+                ->whereMonth('fecha', now()->month)->whereYear('fecha', now()->year)
+                ->sum('total'),
+            'iva_mes' => (float) Cotizacion::where('estado', 'aprobada')
+                ->whereMonth('fecha', now()->month)->whereYear('fecha', now()->year)
+                ->sum('iva_monto'),
+            'gastos_por_cobrar' => (float) TicketGasto::where('cobrar_al_cliente', true)
+                ->whereNull('cotizacion_id')->sum('monto'),
+            'gastos_sin_comprobante' => TicketGasto::whereNull('archivo_path')->count(),
+        ] : null;
+
         return view('dashboard', [
+            'veFinanzas' => $veFinanzas,
+            'finanzas' => $finanzas,
             'kpis' => $kpis,
             'ticketsPorEstado' => $ticketsPorEstado,
             'cotizacionesPorEstado' => $cotizacionesPorEstado,

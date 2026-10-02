@@ -31,7 +31,7 @@
 
 <div class="table-responsive">
 <table class="table table-sm bg-white">
-    <thead class="table-light"><tr><th>Material</th><th class="text-end">Cantidad</th><th class="text-end">Precio unit.</th><th class="text-end">Subtotal</th></tr></thead>
+    <thead class="table-light"><tr><th>Concepto</th><th class="text-end">Cantidad</th><th class="text-end">Precio unit.</th><th class="text-end">Subtotal</th></tr></thead>
     <tbody>
     @foreach($cotizacion->detalles as $detalle)
         <tr>
@@ -41,8 +41,28 @@
             <td class="text-end">Q{{ number_format($detalle->subtotal,2) }}</td>
         </tr>
     @endforeach
+    @foreach($cotizacion->servicios as $servicio)
+        <tr>
+            <td>{{ $servicio->descripcion }} <span class="badge bg-info text-dark">Mano de obra</span></td>
+            <td class="text-end">{{ rtrim(rtrim(number_format($servicio->cantidad, 2), '0'), '.') }}</td>
+            <td class="text-end">Q{{ number_format($servicio->precio_unitario,2) }}</td>
+            <td class="text-end">Q{{ number_format($servicio->subtotal,2) }}</td>
+        </tr>
+    @endforeach
+    @foreach($cotizacion->gastos->where('cobrar_al_cliente', true) as $gasto)
+        <tr>
+            <td>{{ $gasto->descripcion }} <span class="badge bg-warning text-dark">Gasto adicional</span></td>
+            <td class="text-end">1</td>
+            <td class="text-end">Q{{ number_format($gasto->monto,2) }}</td>
+            <td class="text-end">Q{{ number_format($gasto->monto,2) }}</td>
+        </tr>
+    @endforeach
     </tbody>
     <tfoot>
+        <tr><th colspan="3" class="text-end">Subtotal</th><th class="text-end">Q{{ number_format($cotizacion->subtotal,2) }}</th></tr>
+        @if($cotizacion->iva_aplicado)
+            <tr><td colspan="3" class="text-end">IVA</td><td class="text-end">Q{{ number_format($cotizacion->iva_monto,2) }}</td></tr>
+        @endif
         <tr><th colspan="3" class="text-end">Total</th><th class="text-end">Q{{ number_format($cotizacion->total,2) }}</th></tr>
     </tfoot>
 </table>

@@ -12,6 +12,10 @@
         <i class="bi bi-people me-2"></i> Clientes
     </a>
 
+    <a href="<?php echo e(route('catalogo.index')); ?>" class="list-group-item list-group-item-action <?php echo e(str_starts_with($ruta, 'catalogo.') ? 'active' : ''); ?>">
+        <i class="bi bi-grid-3x3-gap me-2"></i> Catálogo
+    </a>
+
     <?php if (\Illuminate\Support\Facades\Blade::check('hasanyrole', 'administrador|tecnico|cotizador')): ?>
         <a href="<?php echo e(route('inventario.movimientos.index')); ?>" class="list-group-item list-group-item-action <?php echo e(str_starts_with($ruta, 'inventario.movimientos') ? 'active' : ''); ?>">
             <i class="bi bi-arrow-left-right me-2"></i> Movimientos Inventario

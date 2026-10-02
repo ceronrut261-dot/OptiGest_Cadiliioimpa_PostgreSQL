@@ -12,6 +12,10 @@
         <i class="bi bi-people me-2"></i> Clientes
     </a>
 
+    <a href="{{ route('catalogo.index') }}" class="list-group-item list-group-item-action {{ str_starts_with($ruta, 'catalogo.') ? 'active' : '' }}">
+        <i class="bi bi-grid-3x3-gap me-2"></i> Catálogo
+    </a>
+
     @hasanyrole('administrador|tecnico|cotizador')
         <a href="{{ route('inventario.movimientos.index') }}" class="list-group-item list-group-item-action {{ str_starts_with($ruta, 'inventario.movimientos') ? 'active' : '' }}">
             <i class="bi bi-arrow-left-right me-2"></i> Movimientos Inventario

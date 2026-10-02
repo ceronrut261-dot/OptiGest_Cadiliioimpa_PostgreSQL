@@ -10,6 +10,9 @@ use App\Http\Controllers\Inventario\MovimientoInventarioController;
 use App\Http\Controllers\Inventario\ReporteInventarioController;
 use App\Http\Controllers\Proveedores\ProveedorController;
 use App\Http\Controllers\Tickets\TicketController;
+use App\Http\Controllers\Tickets\TicketGastoController;
+use App\Http\Controllers\Catalogo\CatalogoController;
+use App\Http\Controllers\Catalogo\CatalogoServicioController;
 use App\Http\Controllers\Inventario\InventarioImportController;
 use App\Http\Controllers\Inventario\HistorialPrecioController;
 use App\Http\Controllers\Usuarios\UsuarioController;
@@ -125,6 +128,30 @@ Route::middleware(['auth', 'verified'])->group(function () {
         'tickets/{ticket}/estado',
         [TicketController::class, 'cambiarEstado']
     )->name('tickets.estado');
+
+    // Gastos adicionales del ticket y sus comprobantes (foto o PDF)
+    Route::post('tickets/{ticket}/gastos', [TicketGastoController::class, 'store'])
+        ->name('tickets.gastos.store');
+    Route::get('tickets/{ticket}/gastos/reporte', [TicketGastoController::class, 'reporte'])
+        ->name('tickets.gastos.reporte');
+    Route::post('tickets/{ticket}/gastos/{gasto}/archivo', [TicketGastoController::class, 'adjuntar'])
+        ->name('tickets.gastos.adjuntar');
+    Route::get('tickets/{ticket}/gastos/{gasto}/archivo', [TicketGastoController::class, 'archivo'])
+        ->name('tickets.gastos.archivo');
+    Route::delete('tickets/{ticket}/gastos/{gasto}', [TicketGastoController::class, 'destroy'])
+        ->middleware('role:administrador|cotizador')
+        ->name('tickets.gastos.destroy');
+
+    // Catálogo (materiales + servicios con mano de obra estandarizada)
+    Route::get('catalogo', [CatalogoController::class, 'index'])->name('catalogo.index');
+
+    Route::middleware(['role:administrador'])->prefix('catalogo/servicios')->name('catalogo.servicios.')->group(function () {
+        Route::get('crear', [CatalogoServicioController::class, 'create'])->name('create');
+        Route::post('/', [CatalogoServicioController::class, 'store'])->name('store');
+        Route::get('{servicio}/editar', [CatalogoServicioController::class, 'edit'])->name('edit');
+        Route::put('{servicio}', [CatalogoServicioController::class, 'update'])->name('update');
+        Route::delete('{servicio}', [CatalogoServicioController::class, 'destroy'])->name('destroy');
+    });
 
     Route::middleware(['role:administrador|cotizador'])->group(function () {
 

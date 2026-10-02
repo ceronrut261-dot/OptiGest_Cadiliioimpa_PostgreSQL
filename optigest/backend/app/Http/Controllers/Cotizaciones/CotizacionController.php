@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Cotizaciones;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Inventario\MovimientoInventarioController;
 use App\Models\Cliente;
+use App\Models\CatalogoServicio;
 use App\Models\Cotizacion;
 use App\Models\Material;
 use App\Models\Ticket;
@@ -44,6 +45,8 @@ class CotizacionController extends Controller
         return view('cotizaciones.create', [
             'materiales' => $materiales,
             'mejoresProveedores' => $mejoresProveedores,
+            'servicios' => CatalogoServicio::where('activo', true)->orderBy('categoria')->orderBy('nombre')->get(),
+            'ivaTasa' => config('optigest.iva'),
             'tickets' => Ticket::whereIn('estado', ['pendiente', 'asignado', 'en_proceso'])->with('cliente')->orderByDesc('id')->get(),
             'clientes' => Cliente::orderBy('nombre')->get(),
         ]);
@@ -55,12 +58,31 @@ class CotizacionController extends Controller
             'cliente_id' => ['required', 'exists:clientes,id'],
             'ticket_id' => ['nullable', 'exists:tickets,id'],
             'observaciones' => ['nullable', 'string'],
-            'materiales' => ['required', 'array', 'min:1'],
-            'materiales.*.id' => ['required', 'exists:materiales,id'],
-            'materiales.*.cantidad' => ['required', 'integer', 'min:1'],
+            'materiales' => ['nullable', 'array'],
+            'materiales.*.id' => ['nullable', 'exists:materiales,id'],
+            'materiales.*.cantidad' => ['nullable', 'integer', 'min:1'],
+            'servicios' => ['nullable', 'array'],
+            'servicios.*.id' => ['nullable', 'exists:catalogo_servicios,id'],
+            'servicios.*.cantidad' => ['nullable', 'numeric', 'min:0.01', 'max:9999'],
+            'aplicar_iva' => ['nullable', 'boolean'],
         ]);
 
-        $cotizacion = DB::transaction(function () use ($datos, $request) {
+        // Solo cuentan las líneas con algo seleccionado.
+        $lineasMateriales = collect($datos['materiales'] ?? [])->filter(fn ($l) => ! empty($l['id']))->values();
+        $lineasServicios = collect($datos['servicios'] ?? [])->filter(fn ($l) => ! empty($l['id']))->values();
+
+        // Con ticket, los gastos adicionales cobrables también cuentan como contenido.
+        $tieneGastos = ! empty($datos['ticket_id'])
+            && \App\Models\TicketGasto::where('ticket_id', $datos['ticket_id'])
+                ->where('cobrar_al_cliente', true)->whereNull('cotizacion_id')->exists();
+
+        if ($lineasMateriales->isEmpty() && $lineasServicios->isEmpty() && ! $tieneGastos) {
+            throw ValidationException::withMessages([
+                'materiales' => 'Agrega al menos un material o un servicio de mano de obra.',
+            ]);
+        }
+
+        $cotizacion = DB::transaction(function () use ($datos, $request, $lineasMateriales, $lineasServicios) {
             $cotizacion = Cotizacion::create([
                 'codigo' => Cotizacion::generarCodigo(),
                 'cliente_id' => $datos['cliente_id'],
@@ -69,9 +91,10 @@ class CotizacionController extends Controller
                 'estado' => 'borrador',
                 'fecha' => now(),
                 'observaciones' => $datos['observaciones'] ?? null,
+                'iva_aplicado' => $request->boolean('aplicar_iva'),
             ]);
 
-            foreach ($datos['materiales'] as $linea) {
+            foreach ($lineasMateriales as $linea) {
                 $material = Material::findOrFail($linea['id']);
 
                 $cotizacion->detalles()->create([
@@ -79,6 +102,21 @@ class CotizacionController extends Controller
                     'cantidad' => $linea['cantidad'],
                     'precio_unitario' => $material->precio,
                     'subtotal' => $material->precio * $linea['cantidad'],
+                ]);
+            }
+
+            // Mano de obra: el precio sale SIEMPRE del catálogo (estandarizado),
+            // nunca de lo que llegue en el formulario.
+            foreach ($lineasServicios as $linea) {
+                $servicio = CatalogoServicio::findOrFail($linea['id']);
+                $cantidad = (float) ($linea['cantidad'] ?? 1);
+
+                $cotizacion->servicios()->create([
+                    'servicio_id' => $servicio->id,
+                    'descripcion' => $servicio->nombre,
+                    'cantidad' => $cantidad,
+                    'precio_unitario' => $servicio->precio_estandar,
+                    'subtotal' => round($servicio->precio_estandar * $cantidad, 2),
                 ]);
             }
 
@@ -93,7 +131,7 @@ class CotizacionController extends Controller
 
     public function show(Cotizacion $cotizacion)
     {
-        return view('cotizaciones.show', ['cotizacion' => $cotizacion->load(['detalles.material', 'cotizador', 'ticket', 'cliente'])]);
+        return view('cotizaciones.show', ['cotizacion' => $cotizacion->load(['detalles.material', 'servicios', 'gastos', 'cotizador', 'ticket', 'cliente'])]);
     }
 
     public function aprobar(Request $request, Cotizacion $cotizacion)
@@ -128,13 +166,17 @@ class CotizacionController extends Controller
     {
         $cotizacion->update(['estado' => 'rechazada']);
 
+        // Libera los gastos que esta cotización iba a cobrar, para que otra
+        // cotización del mismo ticket pueda incluirlos.
+        $cotizacion->gastos()->update(['cotizacion_id' => null]);
+
         return redirect()->route('cotizaciones.show', $cotizacion)
             ->with('status', "Cotizacion {$cotizacion->codigo} marcada como rechazada.");
     }
 
     public function exportarPdf(Cotizacion $cotizacion)
     {
-        $cotizacion->load(['detalles.material', 'cotizador', 'cliente']);
+        $cotizacion->load(['detalles.material', 'servicios', 'gastos', 'cotizador', 'cliente']);
         $pdf = Pdf::loadView('cotizaciones.pdf', ['cotizacion' => $cotizacion]);
 
         return $pdf->download("cotizacion-{$cotizacion->codigo}.pdf");

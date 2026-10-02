@@ -38,7 +38,13 @@ class TicketPolicy
             return true;
         }
 
-        return $user->hasRole('tecnico') && $ticket->tecnico_id === $user->id;
+        if (! $user->hasRole('tecnico')) {
+            return false;
+        }
+
+        // Responsable o técnico de apoyo del ticket.
+        return $ticket->tecnico_id === $user->id
+            || $ticket->tecnicos()->where('users.id', $user->id)->exists();
     }
 
     /**
