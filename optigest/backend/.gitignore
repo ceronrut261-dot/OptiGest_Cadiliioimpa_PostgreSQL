@@ -5,6 +5,7 @@
 /public/storage
 /storage/*.key
 /storage/framework/
+/optigest_respaldo_*.sql
 /vendor/
 .env
 .env.backup
