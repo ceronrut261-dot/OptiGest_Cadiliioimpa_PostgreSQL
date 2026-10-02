@@ -140,26 +140,23 @@ class CotizacionController extends Controller
             return back()->with('status', 'Esta cotizacion ya fue aprobada anteriormente.');
         }
 
-        DB::transaction(function () use ($cotizacion, $request) {
-            foreach ($cotizacion->detalles as $detalle) {
-                $material = Material::lockForUpdate()->findOrFail($detalle->material_id);
+        // El stock NO se descuenta al aprobar: sale de bodega solo cuando se
+        // registra la salida de materiales (la entrega física al técnico).
+        // Así un mismo material nunca se descuenta dos veces.
+        $cotizacion->update(['estado' => 'aprobada']);
 
-                if ($material->stock < $detalle->cantidad) {
-                    throw ValidationException::withMessages([
-                        'stock' => "Stock insuficiente de {$material->nombre} para aprobar la cotizacion (disponible: {$material->stock}, requerido: {$detalle->cantidad}).",
-                    ]);
-                }
+        // Aviso (no bloquea): materiales cuyo stock actual no alcanza para la cotización.
+        $faltantes = $cotizacion->detalles()->with('material')->get()
+            ->filter(fn ($d) => $d->material && $d->material->stock < $d->cantidad)
+            ->map(fn ($d) => "{$d->material->nombre} (disponible: {$d->material->stock}, requerido: {$d->cantidad})");
 
-                MovimientoInventarioController::registrarSalidaPorCotizacion(
-                    $material, $detalle->cantidad, $request->user()->id, $cotizacion->id
-                );
-            }
+        $mensaje = "Cotizacion {$cotizacion->codigo} aprobada. El stock se descuenta al registrar la salida de materiales.";
 
-            $cotizacion->update(['estado' => 'aprobada']);
-        });
+        if ($faltantes->isNotEmpty()) {
+            $mensaje .= ' Aviso: stock insuficiente para '.$faltantes->implode(', ').'.';
+        }
 
-        return redirect()->route('cotizaciones.show', $cotizacion)
-            ->with('status', "Cotizacion {$cotizacion->codigo} aprobada. Stock de inventario actualizado automaticamente.");
+        return redirect()->route('cotizaciones.show', $cotizacion)->with('status', $mensaje);
     }
 
     public function rechazar(Cotizacion $cotizacion)
