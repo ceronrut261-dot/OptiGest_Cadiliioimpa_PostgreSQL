@@ -22,10 +22,30 @@
 
     <div class="card shadow-sm border-0 mb-4">
         <div class="card-header bg-white py-3">
-            <h6 class="fw-bold mb-0 text-primary">Insumos disponibles para cotizar</h6>
+            <div class="row g-2 align-items-center justify-content-between">
+                <div class="col-md-5">
+                    <h6 class="fw-bold mb-0 text-primary">Insumos disponibles para cotizar</h6>
+                </div>
+                {{-- Barra de búsqueda en tiempo real --}}
+                <div class="col-md-6 col-lg-5">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-white border-end-0">
+                            <i class="bi bi-search text-muted"></i>
+                        </span>
+                        <input type="text" 
+                               id="buscadorMateriales" 
+                               class="form-control border-start-0 ps-0" 
+                               placeholder="Filtrar por código o nombre del material...">
+                        <button class="btn btn-outline-secondary" type="button" id="btnLimpiarFiltro" title="Limpiar filtro">
+                            &times;
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
+
         <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
+            <table class="table table-hover align-middle mb-0" id="tablaInsumos">
                 <thead class="table-light">
                     <tr>
                         <th style="width: 15%">Código</th>
@@ -41,16 +61,16 @@
                             $mat = $item->material;
                             $precioUnit = (float)$item->precio;
                         @endphp
-                        <tr>
-                            <td>
+                        <tr class="fila-material">
+                            <td class="col-codigo">
                                 <code>{{ $mat->codigo }}</code>
                                 <input type="hidden" name="items[{{ $loop->index }}][codigo]" value="{{ $mat->codigo }}">
                                 <input type="hidden" name="items[{{ $loop->index }}][nombre]" value="{{ $mat->nombre }}">
                                 <input type="hidden" name="items[{{ $loop->index }}][unidad]" value="{{ $mat->unidad_medida }}">
                                 <input type="hidden" name="items[{{ $loop->index }}][precio]" value="{{ $precioUnit }}">
                             </td>
-                            <td>
-                                <div class="fw-bold">{{ $mat->nombre }}</div>
+                            <td class="col-nombre">
+                                <div class="fw-bold text-dark">{{ $mat->nombre }}</div>
                                 <small class="text-muted">{{ $mat->categoria }}</small>
                             </td>
                             <td>
@@ -79,6 +99,12 @@
                             </td>
                         </tr>
                     @endforelse
+                    {{-- Fila que se muestra si la búsqueda no encuentra nada --}}
+                    <tr id="sinCoincidencias" style="display: none;">
+                        <td colspan="5" class="text-center py-4 text-muted">
+                            <i class="bi bi-search me-1"></i> No se encontraron materiales que coincidan con la búsqueda.
+                        </td>
+                    </tr>
                 </tbody>
                 @if(count($precios) > 0)
                     <tfoot class="table-light">
@@ -115,7 +141,12 @@
 document.addEventListener('DOMContentLoaded', function () {
     const inputsCantidad = document.querySelectorAll('.input-cantidad');
     const labelGranTotal = document.getElementById('granTotal');
+    const buscador = document.getElementById('buscadorMateriales');
+    const btnLimpiar = document.getElementById('btnLimpiarFiltro');
+    const filas = document.querySelectorAll('.fila-material');
+    const filaSinCoincidencias = document.getElementById('sinCoincidencias');
 
+    // 1. Cálculo dinámico de subtotales y total general
     function actualizarTotales() {
         let totalGeneral = 0;
 
@@ -141,6 +172,40 @@ document.addEventListener('DOMContentLoaded', function () {
     inputsCantidad.forEach(input => {
         input.addEventListener('input', actualizarTotales);
     });
+
+    // 2. Filtro en tiempo real por Código o Nombre
+    function filtrarTabla() {
+        const texto = buscador.value.toLowerCase().trim();
+        let visibles = 0;
+
+        filas.forEach(fila => {
+            const codigo = fila.querySelector('.col-codigo').textContent.toLowerCase();
+            const nombre = fila.querySelector('.col-nombre').textContent.toLowerCase();
+
+            if (codigo.includes(texto) || nombre.includes(texto)) {
+                fila.style.display = '';
+                visibles++;
+            } else {
+                fila.style.display = 'none';
+            }
+        });
+
+        if (filaSinCoincidencias) {
+            filaSinCoincidencias.style.display = visibles === 0 ? '' : 'none';
+        }
+    }
+
+    if (buscador) {
+        buscador.addEventListener('input', filtrarTabla);
+    }
+
+    if (btnLimpiar) {
+        btnLimpiar.addEventListener('click', function () {
+            buscador.value = '';
+            filtrarTabla();
+            buscador.focus();
+        });
+    }
 });
 </script>
 @endsection

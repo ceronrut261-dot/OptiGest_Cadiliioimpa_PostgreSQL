@@ -19,9 +19,9 @@
         <div class="d-flex gap-2">
             <select name="cliente_id" id="select-cliente" class="form-select" required>
                 <option value="">— Selecciona un cliente —</option>
-                @foreach ($clientes as$cliente)
-                    <option value="{{ $cliente->id }}">{{ $cliente->nombre }}{{ $cliente->telefono ? ' — '.$cliente->telefono : '' }}</option>
-                @endforeach
+                <?php foreach ($clientes as$cliente): ?>
+                    <option value="{{ $cliente->id }}">{{ $cliente->nombre }}{{ $cliente->telefono ? ' — ' . $cliente->telefono : '' }}</option>
+                <?php endforeach; ?>
             </select>
             <a href="{{ route('clientes.create', ['origen' => 'cotizacion']) }}" target="_blank" class="btn btn-outline-secondary text-nowrap">Cliente nuevo</a>
         </div>
@@ -31,9 +31,9 @@
         <label class="form-label small">Ticket relacionado (opcional)</label>
         <select name="ticket_id" class="form-select">
             <option value="">— Ninguno —</option>
-            @foreach ($tickets as$ticket)
+            <?php foreach ($tickets as$ticket): ?>
                 <option value="{{ $ticket->id }}">{{ $ticket->codigo }} — {{$ticket->cliente->nombre }}</option>
-            @endforeach
+            <?php endforeach; ?>
         </select>
     </div>
 
@@ -43,20 +43,19 @@
             <div class="col-8">
                 <select name="materiales[0][id]" class="form-select form-select-sm select-material">
                     <option value="">— Buscar o seleccionar material —</option>
-                    @foreach ($materiales as$material)
-                        @php
-                            $comp =$material->comparativaProveedores();
-                            $enBodega =$material->en_bodega ? '1' : '0';
-                            $proveedor =$comp['mas_barato']['proveedor'] ?? '';
-                            $precioProv =$comp['mas_barato']['precio'] ?? '';
-                        @endphp
+                    <?php foreach ($materiales as$material): 
+                        $comp =$material->comparativaProveedores();
+                        $enBodega =$material->en_bodega ? '1' : '0';
+                        $proveedor =$comp['mas_barato']['proveedor'] ?? '';
+                        $precioProv =$comp['mas_barato']['precio'] ?? '';
+                    ?>
                         <option value="{{ $material->id }}" 
                                 data-en-bodega="{{ $enBodega }}" 
                                 data-proveedor="{{ $proveedor }}" 
                                 data-precio="{{ $precioProv }}">
-                            {{ $material->codigo }} — {{ $material->nombre }} ({{$material->en_bodega ? 'Stock: '.$material->stock : 'Solo cotizable' }}) — Q{{ number_format($material->precio, 2) }}
+                            {{ $material->codigo }} — {{ $material->nombre }} ({{$material->en_bodega ? 'Stock: ' . $material->stock : 'Solo cotizable' }}) — Q{{ number_format($material->precio, 2) }}
                         </option>
-                    @endforeach
+                    <?php endforeach; ?>
                 </select>
                 <div class="box-comparativa mt-1 small"></div>
             </div>
@@ -78,11 +77,11 @@
             <div class="col-7">
                 <select name="servicios[0][id]" class="form-select form-select-sm select-servicio">
                     <option value="">— Buscar o seleccionar servicio —</option>
-                    @foreach ($servicios as$servicio)
+                    <?php foreach ($servicios as$servicio): ?>
                         <option value="{{ $servicio->id }}" data-precio="{{ $servicio->precio_estandar }}">
                             {{ $servicio->nombre }} — Q{{ number_format($servicio->precio_estandar, 2) }} / {{$servicio->unidad }}
                         </option>
-                    @endforeach
+                    <?php endforeach; ?>
                 </select>
             </div>
             <div class="col-3">
@@ -97,11 +96,11 @@
         <i class="bi bi-plus-lg"></i> Agregar servicio
     </button>
 
-    @if ($servicios->isEmpty())
+    <?php if ($servicios->isEmpty()): ?>
         <div class="form-text mb-2 text-warning">
             <i class="bi bi-exclamation-triangle"></i> El catálogo de servicios está vacío. Puedes cargarlo en Catálogo → Servicios.
         </div>
-    @endif
+    <?php endif; ?>
 
     <div class="alert alert-info small py-2 mt-3">
         Si eliges un ticket, los <strong>gastos adicionales cobrables</strong> registrados en él se suman automáticamente al total de esta cotización.
@@ -126,7 +125,6 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
 
-    // Configuración base de búsqueda para TomSelect
     const configTomSelect = {
         create: false,
         maxOptions: 100,
@@ -135,7 +133,6 @@ document.addEventListener('DOMContentLoaded', function () {
         plugins: ['dropdown_input'],
     };
 
-    // Buscador en cliente
     const selectCliente = document.getElementById('select-cliente');
     if (selectCliente) {
         new TomSelect(selectCliente, configTomSelect);
@@ -187,7 +184,6 @@ document.addEventListener('DOMContentLoaded', function () {
         contenedor.innerHTML = html;
     }
 
-    // Inicializar los que ya vienen al cargar la página
     document.querySelectorAll('.select-material').forEach(sel => {
         inicializarBuscadorMaterial(sel);
         actualizarSugerencia(sel);
@@ -197,7 +193,6 @@ document.addEventListener('DOMContentLoaded', function () {
         inicializarBuscadorServicio(sel);
     });
 
-    // Guardamos plantillas limpias HTML antes de que se alteren
     const contenedorMateriales = document.getElementById('lineas-materiales');
     const plantillaMaterial = contenedorMateriales.querySelector('.linea-material').cloneNode(true);
     plantillaMaterial.querySelectorAll('.ts-wrapper').forEach(el => el.remove());
@@ -208,7 +203,6 @@ document.addEventListener('DOMContentLoaded', function () {
     plantillaServicio.querySelectorAll('.ts-wrapper').forEach(el => el.remove());
     plantillaServicio.querySelector('.select-servicio').style.display = '';
 
-    // Agregar nueva fila de material
     let contadorMateriales = 1;
     document.getElementById('agregar-linea').addEventListener('click', function () {
         const nuevaFila = plantillaMaterial.cloneNode(true);
@@ -227,7 +221,6 @@ document.addEventListener('DOMContentLoaded', function () {
         contadorMateriales++;
     });
 
-    // Agregar nueva fila de servicio
     let contadorServicios = 1;
     document.getElementById('agregar-servicio').addEventListener('click', function () {
         const nuevaFila = plantillaServicio.cloneNode(true);
@@ -245,7 +238,6 @@ document.addEventListener('DOMContentLoaded', function () {
         contadorServicios++;
     });
 
-    // Botones para quitar filas sobrantes
     document.addEventListener('click', function(e) {
         if (e.target.closest('.btn-eliminar-linea')) {
             const filas = document.querySelectorAll('.linea-material');
