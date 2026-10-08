@@ -30,7 +30,7 @@
 </ul>
 
 {{-- ------------------------------------------------------------- --}}
-{{-- PESTAÑA 1: MATERIALES EN BODEGA                                --}}
+{{-- PESTAÑA 1: MATERIALES EN BODEGA                               --}}
 {{-- ------------------------------------------------------------- --}}
 @if(request('tab', 'materiales') === 'materiales')
     <form method="GET" action="{{ route('catalogo.index') }}" class="row g-2 mb-4">
@@ -80,7 +80,7 @@
             <div class="col-12 text-center py-5 text-muted">No se encontraron materiales.</div>
         @endforelse
     </div>
-    <div class="mt-4">{{ $materiales->links() }}</div>
+    <div class="mt-4">{{ $materiales->withQueryString()->links() }}</div>
 
 {{-- ------------------------------------------------------------- --}}
 {{-- PESTAÑA 2: CATÁLOGO DE PROVEEDORES Y COMPARADOR               --}}
@@ -170,30 +170,120 @@
             <div class="col-12 text-center py-5 text-muted">No se encontraron materiales para comparar.</div>
         @endforelse
     </div>
-    <div class="mt-4">{{ $materialesComparativa->links() }}</div>
+    <div class="mt-4">{{ $materialesComparativa->withQueryString()->links() }}</div>
 
 {{-- ------------------------------------------------------------- --}}
 {{-- PESTAÑA 3: SERVICIOS Y MANO DE OBRA                           --}}
 {{-- ------------------------------------------------------------- --}}
 @elseif(request('tab') === 'servicios')
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <p class="text-muted small mb-0">Gestión de servicios y tarifas de mano de obra.</p>
+        @if(auth()->user()->hasRole('administrador'))
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalCrearServicio">
+                <i class="bi bi-plus-lg me-1"></i> Nuevo Servicio
+            </button>
+        @endif
+    </div>
+
+    @if(session('status'))
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="bi bi-check-circle me-1"></i> {{ session('status') }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Cerrar"></button>
+        </div>
+    @endif
+
     <div class="row g-3">
         @forelse($servicios as $srv)
             <div class="col-md-4">
                 <div class="card h-100 shadow-sm border-0">
-                    <div class="card-body">
-                        <span class="badge bg-secondary mb-2">{{ $srv->categoria }}</span>
-                        <h6 class="fw-bold">{{ $srv->nombre }}</h6>
-                        <div class="d-flex justify-content-between align-items-baseline mt-3">
-                            <span class="fs-5 fw-bold text-primary">Q{{ number_format($srv->precio_estandar, 2) }}</span>
+                    <div class="card-body d-flex flex-column">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <span class="badge bg-secondary">{{ $srv->categoria ?? 'General' }}</span>
+                            <span class="small text-muted font-monospace">{{ $srv->codigo }}</span>
+                        </div>
+
+                        <h6 class="fw-bold mb-1">{{ $srv->nombre }}</h6>
+
+                        @if(!empty($srv->descripcion))
+                            <p class="text-muted small mb-3 flex-grow-1">{{ $srv->descripcion }}</p>
+                        @else
+                            <div class="flex-grow-1"></div>
+                        @endif
+
+                        <div class="d-flex justify-content-between align-items-baseline pt-2 border-top mt-2">
+                            <span class="fs-5 fw-bold text-primary font-monospace">Q{{ number_format($srv->precio_estandar, 2) }}</span>
                             <span class="text-muted small">por {{ $srv->unidad }}</span>
                         </div>
+
+                        @if(auth()->user()->hasRole('administrador'))
+                            <div class="d-flex justify-content-end gap-2 mt-3 pt-2 border-top">
+                                <a href="{{ route('catalogo.servicios.edit', $srv) }}" class="btn btn-sm btn-outline-secondary">
+                                    <i class="bi bi-pencil"></i> Editar
+                                </a>
+                                <form action="{{ route('catalogo.servicios.destroy', $srv) }}" method="POST" onsubmit="return confirm('¿Seguro que deseas desactivar este servicio?');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                                        <i class="bi bi-trash"></i> Desactivar
+                                    </button>
+                                </form>
+                            </div>
+                        @endif
                     </div>
                 </div>
             </div>
         @empty
-            <div class="col-12 text-center py-5 text-muted">No hay servicios registrados.</div>
+            <div class="col-12 text-center py-5 text-muted">
+                <i class="bi bi-tools d-block mb-2 fs-3 text-secondary"></i>
+                No hay servicios registrados en este momento.
+            </div>
         @endforelse
     </div>
+
+    @if(auth()->user()->hasRole('administrador'))
+        {{-- Modal de creación rápida --}}
+        <div class="modal fade" id="modalCrearServicio" tabindex="-1" aria-labelledby="modalCrearServicioLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content border-0 shadow">
+                    <form action="{{ route('catalogo.servicios.store') }}" method="POST">
+                        @csrf
+                        <div class="modal-header">
+                            <h5 class="modal-title fw-bold" id="modalCrearServicioLabel">Nuevo Servicio o Mano de Obra</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label for="nombre" class="form-label">Nombre del servicio <span class="text-danger">*</span></label>
+                                <input type="text" name="nombre" id="nombre" class="form-control" placeholder="Ej. Instalación de tubería PVC" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="categoria" class="form-label">Categoría</label>
+                                <input type="text" name="categoria" id="categoria" class="form-control" placeholder="Ej. Plomería, Electricidad, Albañilería">
+                            </div>
+                            <div class="mb-3">
+                                <label for="descripcion" class="form-label">Descripción</label>
+                                <textarea name="descripcion" id="descripcion" class="form-control" rows="2" placeholder="Detalles u observaciones del trabajo..."></textarea>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="precio_estandar" class="form-label">Precio base (Q) <span class="text-danger">*</span></label>
+                                    <input type="number" step="0.01" min="0" name="precio_estandar" id="precio_estandar" class="form-control" placeholder="0.00" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="unidad" class="form-label">Unidad de medida <span class="text-danger">*</span></label>
+                                    <input type="text" name="unidad" id="unidad" class="form-control" placeholder="Ej. mt, hr, día, pza" required>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <button type="submit" class="btn btn-primary">Guardar Servicio</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    @endif
 @endif
 
 @endsection

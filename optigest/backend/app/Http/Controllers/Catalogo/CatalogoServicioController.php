@@ -25,8 +25,8 @@ class CatalogoServicioController extends Controller
 
         CatalogoServicio::create($datos);
 
-        return redirect()->route('catalogo.index', ['vista' => 'servicios'])
-            ->with('status', 'Servicio agregado al catálogo.');
+        return redirect()->route('catalogo.index', ['tab' => 'servicios'])
+            ->with('status', 'Servicio agregado al catálogo exitosamente.');
     }
 
     public function edit(CatalogoServicio $servicio)
@@ -41,8 +41,8 @@ class CatalogoServicioController extends Controller
 
         $servicio->update($datos);
 
-        return redirect()->route('catalogo.index', ['vista' => 'servicios'])
-            ->with('status', "Servicio {$servicio->codigo} actualizado.");
+        return redirect()->route('catalogo.index', ['tab' => 'servicios'])
+            ->with('status', "Servicio {$servicio->codigo} actualizado exitosamente.");
     }
 
     /**
@@ -52,7 +52,7 @@ class CatalogoServicioController extends Controller
     {
         $servicio->update(['activo' => false]);
 
-        return redirect()->route('catalogo.index', ['vista' => 'servicios'])
+        return redirect()->route('catalogo.index', ['tab' => 'servicios'])
             ->with('status', "Servicio {$servicio->codigo} desactivado.");
     }
 
