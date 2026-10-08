@@ -6,7 +6,12 @@
         <h2 class="h4 mb-0">Catálogo de materiales — {{ $proveedor->nombre }}</h2>
         <span class="text-muted small">Lista de lo que vende este proveedor y sus precios de compra</span>
     </div>
-    <a href="{{ route('proveedores.index') }}" class="btn btn-sm btn-outline-secondary">Volver a proveedores</a>
+    <div class="d-flex gap-2">
+        <a href="{{ route('proveedores.solicitud', $proveedor) }}" class="btn btn-sm btn-primary">
+            <i class="bi bi-calculator me-1"></i> Cotizar a este proveedor
+        </a>
+        <a href="{{ route('proveedores.index') }}" class="btn btn-sm btn-outline-secondary">Volver a proveedores</a>
+    </div>
 </div>
 
 @if(session('status'))

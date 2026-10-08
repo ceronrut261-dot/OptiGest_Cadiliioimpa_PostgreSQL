@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Material;
 use App\Models\PrecioProveedorMaterial;
 use App\Models\Proveedor;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 
 class ProveedorController extends Controller
@@ -18,7 +19,9 @@ class ProveedorController extends Controller
             $query->where('nombre', 'like', "%{$busqueda}%");
         }
 
-        return view('proveedores.index', ['proveedores' => $query->paginate(15)->withQueryString()]);
+        return view('proveedores.index', [
+            'proveedores' => $query->paginate(15)->withQueryString()
+        ]);
     }
 
     public function create()
@@ -127,6 +130,40 @@ class ProveedorController extends Controller
         $precio->delete();
 
         return back()->with('status', 'Material removido del catálogo de este proveedor.');
+    }
+
+    /**
+     * Muestra la vista interactiva para ingresar cantidades y calcular
+     * el presupuesto estimado antes de enviar la cotización.
+     */
+    public function solicitudCotizacion(Proveedor $proveedor)
+    {
+        $precios = $proveedor->preciosProveedor()->with('material')->get();
+
+        return view('proveedores.solicitud_cotizacion', compact('proveedor', 'precios'));
+    }
+
+    /**
+     * Genera el PDF formal de la solicitud de cotización con los insumos seleccionados.
+     */
+    public function exportarSolicitudPdf(Request $request, Proveedor $proveedor)
+    {
+        $items = collect($request->input('items', []))->filter(function ($item) {
+            return isset($item['cantidad']) && (float)$item['cantidad'] > 0;
+        });
+
+        if ($items->isEmpty()) {
+            return back()->with('status', 'Debes ingresar al menos una cantidad mayor a cero.');
+        }
+
+        $observaciones = $request->input('observaciones');
+        $totalGeneral = $items->sum(function ($item) {
+            return ((float)$item['cantidad']) * ((float)$item['precio']);
+        });
+
+        $pdf = Pdf::loadView('proveedores.pdf_solicitud', compact('proveedor', 'items', 'observaciones', 'totalGeneral'));
+
+        return $pdf->stream("Solicitud_Cotizacion_{$proveedor->nombre}.pdf");
     }
 
     private function validarDatos(Request $request): array

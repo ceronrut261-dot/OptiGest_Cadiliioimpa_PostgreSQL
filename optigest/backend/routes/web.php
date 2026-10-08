@@ -132,6 +132,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
             [ProveedorController::class, 'eliminarMaterialCatalogo']
         )->name('proveedores.catalogo.eliminar');
 
+        // Solicitud de cotización formal a proveedores (cálculo interactivo y PDF)
+        Route::get(
+            'proveedores/{proveedor}/solicitud-cotizacion',
+            [ProveedorController::class, 'solicitudCotizacion']
+        )->name('proveedores.solicitud');
+
+        Route::post(
+            'proveedores/{proveedor}/solicitud-cotizacion/pdf',
+            [ProveedorController::class, 'exportarSolicitudPdf']
+        )->name('proveedores.solicitud.pdf');
+
         Route::resource('proveedores', ProveedorController::class)
             ->parameters(['proveedores' => 'proveedor']);
     });
@@ -285,5 +296,3 @@ Route::middleware(['auth', 'verified'])->group(function () {
 });
 
 require __DIR__.'/auth.php';
-
-
