@@ -1,4 +1,3 @@
-
 @extends('layouts.app')
 
 @section('titulo', 'Materiales')
@@ -6,7 +5,7 @@
 @section('contenido')
 
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-    <h2 class="h4 mb-0">Materiales de Inventario</h2>
+    <h2 class="h4 mb-0">Catálogo de Materiales</h2>
     <a href="{{ route('inventario.materiales.create') }}" class="btn btn-primary btn-sm">
         <i class="bi bi-plus-lg"></i> Nuevo material
     </a>
@@ -15,6 +14,13 @@
 <form method="GET" class="row g-2 mb-3">
     <div class="col-md-4">
         <input type="text" name="q" value="{{ request('q') }}" class="form-control form-control-sm" placeholder="Buscar por nombre, código o categoría">
+    </div>
+    <div class="col-md-3">
+        <select name="tipo" class="form-select form-select-sm">
+            <option value="">— Todos los catálogos —</option>
+            <option value="bodega" {{ request('tipo') === 'bodega' ? 'selected' : '' }}>En bodega (con stock)</option>
+            <option value="cotizable" {{ request('tipo') === 'cotizable' ? 'selected' : '' }}>Solo cotizable (proveedores)</option>
+        </select>
     </div>
     <div class="col-md-3">
         <div class="form-check mt-1">
@@ -33,6 +39,7 @@
             <tr>
                 <th>Código</th>
                 <th>Nombre</th>
+                <th>Tipo</th>
                 <th>Categoría</th>
                 <th>Proveedor</th>
                 <th class="text-end">Precio</th>
@@ -43,18 +50,30 @@
         <tbody>
             @forelse($materiales as $material)
                 <tr class="{{ $material->bajo_stock ? 'table-danger' : '' }}">
-                    <td>{{ $material->codigo }}</td>
+                    <td><code>{{ $material->codigo }}</code></td>
                     <td>{{ $material->nombre }}</td>
+                    <td>
+                        @if($material->en_bodega)
+                            <span class="badge bg-primary">Bodega</span>
+                        @else
+                            <span class="badge bg-warning text-dark">Solo cotizable</span>
+                        @endif
+                    </td>
                     <td>{{ $material->categoria }}</td>
                     <td>{{ $material->proveedor?->nombre ?? '—' }}</td>
                     <td class="text-end">Q{{ number_format($material->precio, 2) }}</td>
                     <td class="text-end">
-                        {{ $material->stock }}
-                        @if($material->bajo_stock)
-                            <span class="badge bg-danger">bajo</span>
+                        @if($material->en_bodega)
+                            {{ $material->stock }}
+                            @if($material->bajo_stock)
+                                <span class="badge bg-danger">bajo</span>
+                            @endif
+                        @else
+                            <span class="text-muted">—</span>
                         @endif
                     </td>
                     <td class="text-end">
+                        <a href="{{ route('inventario.materiales.precios', $material) }}" class="btn btn-sm btn-outline-info" title="Precios por proveedor">Precios</a>
                         <a href="{{ route('inventario.materiales.edit', $material) }}" class="btn btn-sm btn-outline-primary">Editar</a>
                         <a href="{{ route('inventario.materiales.historial', $material) }}" class="btn btn-sm btn-outline-secondary">Historial</a>
                         <form action="{{ route('inventario.materiales.destroy', $material) }}" method="POST" class="d-inline" onsubmit="return confirm('¿Desactivar este material?');">
@@ -64,7 +83,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="7" class="text-center text-muted py-4">No hay materiales registrados.</td></tr>
+                <tr><td colspan="8" class="text-center text-muted py-4">No hay materiales registrados.</td></tr>
             @endforelse
         </tbody>
     </table>
@@ -73,4 +92,3 @@
 {{ $materiales->links() }}
 
 @endsection
-

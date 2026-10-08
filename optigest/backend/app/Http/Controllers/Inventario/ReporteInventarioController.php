@@ -10,8 +10,12 @@ class ReporteInventarioController extends Controller
 {
     public function stock()
     {
-        $materiales = Material::with('proveedor')->where('activo', true)
-            ->orderBy('categoria')->orderBy('nombre')->get();
+        $materiales = Material::with('proveedor')
+            ->where('activo', true)
+            ->where('en_bodega', true)
+            ->orderBy('categoria')
+            ->orderBy('nombre')
+            ->get();
 
         $resumenPorCategoria = $materiales->groupBy('categoria')->map(function ($items) {
             return [
@@ -31,8 +35,12 @@ class ReporteInventarioController extends Controller
 
     public function exportarPdf()
     {
-        $materiales = Material::with('proveedor')->where('activo', true)
-            ->orderBy('categoria')->orderBy('nombre')->get();
+        $materiales = Material::with('proveedor')
+            ->where('activo', true)
+            ->where('en_bodega', true)
+            ->orderBy('categoria')
+            ->orderBy('nombre')
+            ->get();
 
         $pdf = Pdf::loadView('inventario.reportes.stock-pdf', ['materiales' => $materiales, 'fecha' => now()]);
 

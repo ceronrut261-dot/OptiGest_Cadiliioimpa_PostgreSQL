@@ -15,7 +15,7 @@ class Material extends Model
  
     protected $fillable = [ 
         'codigo', 'nombre', 'categoria', 'descripcion', 'precio', 'stock', 
-        'stock_minimo', 'unidad_medida', 'proveedor_id', 'activo', 
+        'stock_minimo', 'unidad_medida', 'proveedor_id', 'activo', 'en_bodega',
     ]; 
  
     protected function casts(): array 
@@ -25,6 +25,7 @@ class Material extends Model
             'stock' => 'integer', 
             'stock_minimo' => 'integer', 
             'activo' => 'boolean', 
+            'en_bodega' => 'boolean',
         ]; 
     } 
  
@@ -39,40 +40,58 @@ class Material extends Model
     }
 
     /**
-     * Compara el precio de catálogo (proveedor asignado en la ficha del
-     * material) contra todos los precios registrados en
-     * precios_proveedor_material, y devuelve el más barato.
-     * Devuelve null si no hay ningún proveedor con precio conocido.
+     * Compara todos los proveedores disponibles para este material.
+     * Devuelve el más barato y los competidores con sus precios.
      */
-    public function mejorProveedor(): ?array
+    public function comparativaProveedores(): ?array
     {
         $candidatos = collect();
 
-        if ($this->proveedor_id && $this->precio > 0) {
+        // 1. Proveedor asignado en la ficha del material
+        if ($this->proveedor_id && $this->precio > 0 && $this->proveedor) {
             $candidatos->push([
-                'proveedor' => $this->proveedor?->nombre,
+                'proveedor' => $this->proveedor->nombre,
                 'precio' => (float) $this->precio,
             ]);
         }
 
-        foreach ($this->preciosProveedor()->with('proveedor')->get() as $registro) {
-            $candidatos->push([
-                'proveedor' => $registro->proveedor->nombre,
-                'precio' => (float) $registro->precio,
-            ]);
+        // 2. Precios adicionales registrados en precios_proveedor_material
+        foreach ($this->preciosProveedor as $registro) {
+            if ($registro->proveedor && (float) $registro->precio > 0) {
+                $candidatos->push([
+                    'proveedor' => $registro->proveedor->nombre,
+                    'precio' => (float) $registro->precio,
+                ]);
+            }
         }
 
-        return $candidatos->sortBy('precio')->first();
+        $unicos = $candidatos->unique(fn ($item) => $item['proveedor'].'-'.$item['precio'])->sortBy('precio')->values();
+
+        if ($unicos->isEmpty()) {
+            return null;
+        }
+
+        return [
+            'mas_barato' => $unicos->first(),
+            'otros' => $unicos->slice(1)->values()->all(),
+            'total_opciones' => $unicos->count(),
+        ];
+    }
+
+    public function mejorProveedor(): ?array
+    {
+        $comp = $this->comparativaProveedores();
+        return $comp ? $comp['mas_barato'] : null;
     }
  
     public function historialPrecios() 
     { 
-    return $this->hasMany(HistorialPrecioMaterial::class, 'material_id'); 
+        return $this->hasMany(HistorialPrecioMaterial::class, 'material_id'); 
     } 
  
     protected static function booted(): void 
     { 
-    static::observe(MaterialObserver::class); 
+        static::observe(MaterialObserver::class); 
     } 
  
     public function movimientos() 
@@ -87,13 +106,26 @@ class Material extends Model
  
     public function getBajoStockAttribute(): bool 
     { 
+        if (! $this->en_bodega) {
+            return false;
+        }
         return $this->stock <= $this->stock_minimo; 
     } 
  
     public function scopeBajoStock($query) 
     { 
-        return $query->whereColumn('stock', '<=', 'stock_minimo'); 
+        return $query->where('en_bodega', true)->whereColumn('stock', '<=', 'stock_minimo'); 
     } 
+
+    public function scopeEnBodega($query)
+    {
+        return $query->where('en_bodega', true);
+    }
+
+    public function scopeSoloCotizable($query)
+    {
+        return $query->where('en_bodega', false);
+    }
  
     public static function generarCodigo(): string 
     { 
@@ -103,4 +135,3 @@ class Material extends Model
         return 'MAT-'.str_pad((string) $siguiente, 5, '0', STR_PAD_LEFT); 
     } 
 }
-

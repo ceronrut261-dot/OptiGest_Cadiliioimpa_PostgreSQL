@@ -5,46 +5,62 @@ namespace App\Http\Controllers\Catalogo;
 use App\Http\Controllers\Controller;
 use App\Models\CatalogoServicio;
 use App\Models\Material;
+use App\Models\Proveedor;
 use Illuminate\Http\Request;
 
 class CatalogoController extends Controller
 {
     public function index(Request $request)
     {
-        $vista = $request->get('vista') === 'servicios' ? 'servicios' : 'materiales';
-        $buscar = trim((string) $request->get('q', ''));
+        $pestana = $request->get('tab', 'materiales');
+        $busqueda = $request->get('q');
         $categoria = $request->get('categoria');
 
-        $categorias = Material::where('activo', true)
-            ->whereNotNull('categoria')->where('categoria', '<>', '')
-            ->distinct()->orderBy('categoria')->pluck('categoria');
+        // Categorías existentes para los select de filtro
+        $categorias = Material::select('categoria')->distinct()->whereNotNull('categoria')->pluck('categoria');
 
-        $materiales = Material::where('activo', true)
-            ->when($buscar !== '' && $vista === 'materiales', function ($q) use ($buscar) {
-                $q->where(function ($q) use ($buscar) {
-                    $q->where('nombre', 'ILIKE', "%{$buscar}%")
-                        ->orWhere('codigo', 'ILIKE', "%{$buscar}%")
-                        ->orWhere('descripcion', 'ILIKE', "%{$buscar}%");
-                });
-            })
-            ->when($categoria, fn ($q) => $q->where('categoria', $categoria))
-            ->orderBy('nombre')
-            ->paginate(24)
-            ->withQueryString();
+        // 1. Materiales de Bodega (Pestaña actual)
+        $materialesQuery = Material::where('activo', true);
+        if ($busqueda) {
+            $materialesQuery->where(function ($q) use ($busqueda) {
+                $q->where('nombre', 'like', "%{$busqueda}%")
+                    ->orWhere('codigo', 'like', "%{$busqueda}%")
+                    ->orWhere('descripcion', 'like', "%{$busqueda}%");
+            });
+        }
+        if ($categoria) {
+            $materialesQuery->where('categoria', $categoria);
+        }
+        $materiales = $materialesQuery->orderBy('nombre')->paginate(12, ['*'], 'mat_page')->withQueryString();
 
-        $puedeGestionar = $request->user()->hasRole('administrador');
+        // 2. Servicios (Pestaña actual)
+        $servicios = CatalogoServicio::where('activo', true)->orderBy('categoria')->orderBy('nombre')->get();
 
-        $servicios = CatalogoServicio::when(! $puedeGestionar, fn ($q) => $q->where('activo', true))
-            ->when($buscar !== '' && $vista === 'servicios', function ($q) use ($buscar) {
-                $q->where(function ($q) use ($buscar) {
-                    $q->where('nombre', 'ILIKE', "%{$buscar}%")
-                        ->orWhere('codigo', 'ILIKE', "%{$buscar}%")
-                        ->orWhere('descripcion', 'ILIKE', "%{$buscar}%");
-                });
-            })
-            ->orderBy('categoria')->orderBy('nombre')
-            ->get();
+        // 3. Catálogo de Proveedores y Comparador de Precios (NUEVA PESTAÑA)
+        $proveedoresQuery = Material::where('activo', true)
+            ->with(['proveedor', 'preciosProveedor.proveedor']);
 
-        return view('catalogo.index', compact('vista', 'buscar', 'categoria', 'categorias', 'materiales', 'servicios', 'puedeGestionar'));
+        if ($busqueda) {
+            $proveedoresQuery->where(function ($q) use ($busqueda) {
+                $q->where('nombre', 'like', "%{$busqueda}%")
+                    ->orWhere('codigo', 'like', "%{$busqueda}%")
+                    ->orWhere('descripcion', 'like', "%{$busqueda}%");
+            });
+        }
+        if ($categoria) {
+            $proveedoresQuery->where('categoria', $categoria);
+        }
+
+        $materialesComparativa = $proveedoresQuery->orderBy('nombre')->paginate(12, ['*'], 'prov_page')->withQueryString();
+
+        return view('catalogo.index', [
+            'pestana' => $pestana,
+            'busqueda' => $busqueda,
+            'categoria' => $categoria,
+            'categorias' => $categorias,
+            'materiales' => $materiales,
+            'servicios' => $servicios,
+            'materialesComparativa' => $materialesComparativa,
+        ]);
     }
 }

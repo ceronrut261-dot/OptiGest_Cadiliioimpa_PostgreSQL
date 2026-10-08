@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Proveedores;
 
 use App\Http\Controllers\Controller;
+use App\Models\Material;
+use App\Models\PrecioProveedorMaterial;
 use App\Models\Proveedor;
 use Illuminate\Http\Request;
 
@@ -10,7 +12,7 @@ class ProveedorController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Proveedor::withCount('materiales')->orderBy('nombre');
+        $query = Proveedor::withCount(['materiales', 'preciosProveedor'])->orderBy('nombre');
 
         if ($busqueda = $request->get('q')) {
             $query->where('nombre', 'like', "%{$busqueda}%");
@@ -51,6 +53,80 @@ class ProveedorController extends Controller
 
         return redirect()->route('proveedores.index')
             ->with('status', "Proveedor {$proveedor->nombre} desactivado.");
+    }
+
+    public function catalogo(Proveedor $proveedor)
+    {
+        $precios = $proveedor->preciosProveedor()->with('material')->get();
+        $materialesDisponibles = Material::where('activo', true)
+            ->whereNotIn('id', $precios->pluck('material_id'))
+            ->orderBy('nombre')
+            ->get();
+
+        return view('proveedores.catalogo', [
+            'proveedor' => $proveedor,
+            'precios' => $precios,
+            'materialesDisponibles' => $materialesDisponibles,
+        ]);
+    }
+
+    public function guardarMaterialCatalogo(Request $request, Proveedor $proveedor)
+    {
+        $datos = $request->validate([
+            'material_id' => ['required', 'exists:materiales,id'],
+            'precio' => ['required', 'numeric', 'min:0'],
+        ]);
+
+        PrecioProveedorMaterial::updateOrCreate(
+            ['proveedor_id' => $proveedor->id, 'material_id' => $datos['material_id']],
+            ['precio' => $datos['precio'], 'actualizado_en' => now()]
+        );
+
+        return back()->with('status', 'Material y precio asociados al proveedor.');
+    }
+
+    public function crearMaterialCatalogo(Request $request, Proveedor $proveedor)
+    {
+        $datos = $request->validate([
+            'codigo' => ['nullable', 'string', 'max:50', 'unique:materiales,codigo'],
+            'nombre' => ['required', 'string', 'max:255'],
+            'categoria' => ['required', 'string', 'max:100'],
+            'unidad_medida' => ['required', 'string', 'max:30'],
+            'precio' => ['required', 'numeric', 'min:0'],
+            'descripcion' => ['nullable', 'string'],
+        ]);
+
+        $codigo = !empty($datos['codigo']) ? trim($datos['codigo']) : Material::generarCodigo();
+
+        $material = Material::create([
+            'codigo' => $codigo,
+            'nombre' => $datos['nombre'],
+            'categoria' => $datos['categoria'],
+            'unidad_medida' => $datos['unidad_medida'],
+            'descripcion' => $datos['descripcion'] ?? null,
+            'precio' => $datos['precio'],
+            'stock' => 0,
+            'stock_minimo' => 0,
+            'proveedor_id' => $proveedor->id,
+            'activo' => true,
+            'en_bodega' => false,
+        ]);
+
+        PrecioProveedorMaterial::create([
+            'proveedor_id' => $proveedor->id,
+            'material_id' => $material->id,
+            'precio' => $datos['precio'],
+            'actualizado_en' => now(),
+        ]);
+
+        return back()->with('status', "Material cotizable {$material->codigo} creado y vinculado a {$proveedor->nombre}.");
+    }
+
+    public function eliminarMaterialCatalogo(Proveedor $proveedor, PrecioProveedorMaterial $precio)
+    {
+        $precio->delete();
+
+        return back()->with('status', 'Material removido del catálogo de este proveedor.');
     }
 
     private function validarDatos(Request $request): array

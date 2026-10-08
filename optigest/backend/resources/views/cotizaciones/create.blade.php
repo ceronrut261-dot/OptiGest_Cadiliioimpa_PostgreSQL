@@ -11,9 +11,9 @@
         <div class="d-flex gap-2">
             <select name="cliente_id" class="form-select" required>
                 <option value="">— Selecciona un cliente —</option>
-                @foreach($clientes as $cliente)
+                <?php foreach ($clientes as$cliente): ?>
                     <option value="{{ $cliente->id }}">{{ $cliente->nombre }}{{ $cliente->telefono ? ' — '.$cliente->telefono : '' }}</option>
-                @endforeach
+                <?php endforeach; ?>
             </select>
             <a href="{{ route('clientes.create', ['origen' => 'cotizacion']) }}" target="_blank" class="btn btn-outline-secondary text-nowrap">Cliente nuevo</a>
         </div>
@@ -23,25 +23,33 @@
         <label class="form-label small">Ticket relacionado (opcional)</label>
         <select name="ticket_id" class="form-select">
             <option value="">— Ninguno —</option>
-            @foreach($tickets as $ticket)
-                <option value="{{ $ticket->id }}">{{ $ticket->codigo }} — {{ $ticket->cliente->nombre }}</option>
-            @endforeach
+            <?php foreach ($tickets as$ticket): ?>
+                <option value="{{ $ticket->id }}">{{ $ticket->codigo }} — {{$ticket->cliente->nombre }}</option>
+            <?php endforeach; ?>
         </select>
     </div>
 
     <label class="form-label small">Materiales</label>
     <div id="lineas-materiales">
-        <div class="row g-2 mb-1 linea-material align-items-start">
-            <div class="col-7">
+        <div class="row g-2 mb-2 linea-material align-items-start border-bottom pb-2">
+            <div class="col-8">
                 <select name="materiales[0][id]" class="form-select form-select-sm select-material">
                     <option value="">— Sin material —</option>
-                    @foreach($materiales as $material)
-                        <option value="{{ $material->id }}" data-mejor="{{ $mejoresProveedores[$material->id]['proveedor'] ?? '' }}" data-mejor-precio="{{ $mejoresProveedores[$material->id]['precio'] ?? '' }}">
-                            {{ $material->nombre }} (stock: {{ $material->stock }}) — Q{{ number_format($material->precio,2) }}
+                    <?php foreach ($materiales as$material): 
+                        $comp =$material->comparativaProveedores();
+                        $enBodega =$material->en_bodega ? '1' : '0';
+                        $proveedor =$comp['mas_barato']['proveedor'] ?? '';
+                        $precioProv =$comp['mas_barato']['precio'] ?? '';
+                    ?>
+                        <option value="{{ $material->id }}" 
+                                data-en-bodega="{{ $enBodega }}" 
+                                data-proveedor="{{ $proveedor }}" 
+                                data-precio="{{ $precioProv }}">
+                            {{ $material->codigo }} — {{ $material->nombre }} ({{$material->en_bodega ? 'Stock: '.$material->stock : 'Solo cotizable' }}) — Q{{ number_format($material->precio, 2) }}
                         </option>
-                    @endforeach
+                    <?php endforeach; ?>
                 </select>
-                <small class="text-success d-block mt-1 texto-mejor-proveedor"></small>
+                <div class="box-comparativa mt-1 small"></div>
             </div>
             <div class="col-3">
                 <input type="number" name="materiales[0][cantidad]" min="1" value="1" class="form-control form-control-sm" placeholder="Cantidad">
@@ -56,11 +64,11 @@
             <div class="col-7">
                 <select name="servicios[0][id]" class="form-select form-select-sm select-servicio">
                     <option value="">— Sin mano de obra —</option>
-                    @foreach($servicios as $servicio)
+                    <?php foreach ($servicios as$servicio): ?>
                         <option value="{{ $servicio->id }}" data-precio="{{ $servicio->precio_estandar }}">
-                            {{ $servicio->nombre }} — Q{{ number_format($servicio->precio_estandar, 2) }} / {{ $servicio->unidad }}
+                            {{ $servicio->nombre }} — Q{{ number_format($servicio->precio_estandar, 2) }} / {{$servicio->unidad }}
                         </option>
-                    @endforeach
+                    <?php endforeach; ?>
                 </select>
             </div>
             <div class="col-3">
@@ -69,13 +77,13 @@
         </div>
     </div>
     <button type="button" class="btn btn-sm btn-outline-secondary mb-2" id="agregar-servicio">+ Agregar servicio</button>
-    @if($servicios->isEmpty())
-        <div class="form-text mb-2">El catálogo de servicios está vacío. Un administrador puede cargarlo en Catálogo → Servicios.</div>
-    @endif
 
-    <div class="alert alert-info small py-2">
-        Si eliges un ticket, los <strong>gastos adicionales cobrables</strong> registrados en él (compras de material, etc.)
-        se suman automáticamente al total de esta cotización.
+    <?php if ($servicios->isEmpty()): ?>
+        <div class="form-text mb-2">El catálogo de servicios está vacío. Un administrador puede cargarlo en Catálogo → Servicios.</div>
+    <?php endif; ?>
+
+    <div class="alert alert-info small py-2 mt-3">
+        Si eliges un ticket, los <strong>gastos adicionales cobrables</strong> registrados en él se suman automáticamente al total de esta cotización.
     </div>
 
     <div class="form-check mb-3">
@@ -83,7 +91,10 @@
         <label class="form-check-label small" for="aplicar_iva">Aplicar IVA ({{ rtrim(rtrim(number_format($ivaTasa * 100, 2), '0'), '.') }} %)</label>
     </div>
 
-    <div class="mb-3"><label class="form-label small">Observaciones</label><textarea name="observaciones" class="form-control" rows="2"></textarea></div>
+    <div class="mb-3">
+        <label class="form-label small">Observaciones</label>
+        <textarea name="observaciones" class="form-control" rows="2"></textarea>
+    </div>
 
     <button type="submit" class="btn btn-primary">Crear cotización (borrador)</button>
     <a href="{{ route('cotizaciones.index') }}" class="btn btn-outline-secondary">Cancelar</a>
@@ -91,13 +102,33 @@
 
 <script>
 function actualizarSugerencia(select) {
+    const contenedor = select.closest('.linea-material').querySelector('.box-comparativa');
     const opcion = select.options[select.selectedIndex];
-    const texto = select.closest('.linea-material').querySelector('.texto-mejor-proveedor');
-    const proveedor = opcion.dataset.mejor;
-    const precio = opcion.dataset.mejorPrecio;
-    texto.textContent = proveedor
-        ? `Proveedor más conveniente: ${proveedor} — Q${parseFloat(precio).toFixed(2)}`
-        : '';
+    
+    if (!opcion || !opcion.value) {
+        contenedor.innerHTML = '';
+        return;
+    }
+
+    const enBodega = opcion.dataset.enBodega === '1';
+    const proveedor = opcion.dataset.proveedor;
+    const precio = opcion.dataset.precio;
+
+    let html = '';
+
+    if (!enBodega) {
+        html += '<span class="badge bg-warning text-dark me-1"><i class="bi bi-cart-plus"></i> Comprar a proveedor</span> ';
+    } else {
+        html += '<span class="badge bg-primary me-1">En bodega</span> ';
+    }
+
+    if (proveedor && precio) {
+        html += `<span class="text-success fw-bold">Más económico: ${proveedor} (Q${parseFloat(precio).toFixed(2)})</span>`;
+    } else {
+        html += '<span class="text-muted fst-italic">Sin precios de compra registrados</span>';
+    }
+
+    contenedor.innerHTML = html;
 }
 
 document.querySelectorAll('.select-material').forEach(sel => {
@@ -126,6 +157,7 @@ document.getElementById('agregar-linea').addEventListener('click', function () {
         el.name = el.name.replace(/\[\d+\]/, `[${contador}]`);
         if (el.tagName === 'INPUT') el.value = 1;
     });
+    clon.querySelector('.box-comparativa').innerHTML = '';
     contenedor.appendChild(clon);
     const nuevoSelect = clon.querySelector('.select-material');
     actualizarSugerencia(nuevoSelect);

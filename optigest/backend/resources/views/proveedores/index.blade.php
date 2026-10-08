@@ -6,17 +6,22 @@
     <a href="{{ route('proveedores.create') }}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg"></i> Nuevo proveedor</a>
 </div>
 <div class="table-responsive">
-<table class="table table-sm table-hover bg-white">
+<table class="table table-sm table-hover bg-white align-middle">
     <thead class="table-light"><tr><th>Proveedor</th><th>Nombre (contacto)</th><th>Teléfono</th><th>Descripción</th><th class="text-end">Materiales</th><th></th></tr></thead>
     <tbody>
     @forelse($proveedores as $proveedor)
         <tr>
-            <td>{{ $proveedor->nombre }}</td>
+            <td><strong>{{ $proveedor->nombre }}</strong></td>
             <td>{{ $proveedor->nombre_contacto }}</td>
             <td>{{ $proveedor->telefono }}</td>
             <td class="small text-muted">{{ \Illuminate\Support\Str::limit($proveedor->descripcion, 50) }}</td>
-            <td class="text-end">{{ $proveedor->materiales_count }}</td>
             <td class="text-end">
+                <span class="badge bg-secondary">{{ $proveedor->precios_proveedor_count ?? $proveedor->materiales_count }}</span>
+            </td>
+            <td class="text-end">
+                <a href="{{ route('proveedores.catalogo', $proveedor) }}" class="btn btn-sm btn-outline-info">
+                    <i class="bi bi-box-seam"></i> Catálogo
+                </a>
                 <a href="{{ route('proveedores.edit', $proveedor) }}" class="btn btn-sm btn-outline-primary">Editar</a>
                 <form action="{{ route('proveedores.destroy', $proveedor) }}" method="POST" class="d-inline" onsubmit="return confirm('¿Desactivar?');">
                     @csrf @method('DELETE')

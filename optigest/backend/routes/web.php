@@ -38,7 +38,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 [HistorialPrecioController::class, 'index']
             )->name('materiales.historial');
 
-            // Gestión de precios por material
             Route::get(
                 'materiales/{material}/precios',
                 [MaterialController::class, 'precios']
@@ -72,7 +71,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 [MovimientoInventarioController::class, 'store']
             )->name('movimientos.store');
 
-            // Exportar movimientos a PDF
             Route::get(
                 'movimientos/pdf',
                 [MovimientoInventarioController::class, 'exportarPdf']
@@ -106,7 +104,33 @@ Route::middleware(['auth', 'verified'])->group(function () {
         });
     });
 
+    /*
+    |--------------------------------------------------------------------------
+    | Proveedores y catálogo de materiales
+    |--------------------------------------------------------------------------
+    */
+
     Route::middleware(['role:administrador|cotizador'])->group(function () {
+
+        Route::get(
+            'proveedores/{proveedor}/catalogo',
+            [ProveedorController::class, 'catalogo']
+        )->name('proveedores.catalogo');
+
+        Route::post(
+            'proveedores/{proveedor}/catalogo',
+            [ProveedorController::class, 'guardarMaterialCatalogo']
+        )->name('proveedores.catalogo.guardar');
+
+        Route::post(
+            'proveedores/{proveedor}/catalogo/crear-material',
+            [ProveedorController::class, 'crearMaterialCatalogo']
+        )->name('proveedores.catalogo.crear');
+
+        Route::delete(
+            'proveedores/{proveedor}/catalogo/{precio}',
+            [ProveedorController::class, 'eliminarMaterialCatalogo']
+        )->name('proveedores.catalogo.eliminar');
 
         Route::resource('proveedores', ProveedorController::class)
             ->parameters(['proveedores' => 'proveedor']);
@@ -129,29 +153,67 @@ Route::middleware(['auth', 'verified'])->group(function () {
         [TicketController::class, 'cambiarEstado']
     )->name('tickets.estado');
 
-    // Gastos adicionales del ticket y sus comprobantes (foto o PDF)
-    Route::post('tickets/{ticket}/gastos', [TicketGastoController::class, 'store'])
-        ->name('tickets.gastos.store');
-    Route::get('tickets/{ticket}/gastos/reporte', [TicketGastoController::class, 'reporte'])
-        ->name('tickets.gastos.reporte');
-    Route::post('tickets/{ticket}/gastos/{gasto}/archivo', [TicketGastoController::class, 'adjuntar'])
-        ->name('tickets.gastos.adjuntar');
-    Route::get('tickets/{ticket}/gastos/{gasto}/archivo', [TicketGastoController::class, 'archivo'])
-        ->name('tickets.gastos.archivo');
-    Route::delete('tickets/{ticket}/gastos/{gasto}', [TicketGastoController::class, 'destroy'])
-        ->middleware('role:administrador|cotizador')
-        ->name('tickets.gastos.destroy');
+    Route::post(
+        'tickets/{ticket}/gastos',
+        [TicketGastoController::class, 'store']
+    )->name('tickets.gastos.store');
 
-    // Catálogo (materiales + servicios con mano de obra estandarizada)
-    Route::get('catalogo', [CatalogoController::class, 'index'])->name('catalogo.index');
+    Route::get(
+        'tickets/{ticket}/gastos/reporte',
+        [TicketGastoController::class, 'reporte']
+    )->name('tickets.gastos.reporte');
 
-    Route::middleware(['role:administrador'])->prefix('catalogo/servicios')->name('catalogo.servicios.')->group(function () {
-        Route::get('crear', [CatalogoServicioController::class, 'create'])->name('create');
-        Route::post('/', [CatalogoServicioController::class, 'store'])->name('store');
-        Route::get('{servicio}/editar', [CatalogoServicioController::class, 'edit'])->name('edit');
-        Route::put('{servicio}', [CatalogoServicioController::class, 'update'])->name('update');
-        Route::delete('{servicio}', [CatalogoServicioController::class, 'destroy'])->name('destroy');
-    });
+    Route::post(
+        'tickets/{ticket}/gastos/{gasto}/archivo',
+        [TicketGastoController::class, 'adjuntar']
+    )->name('tickets.gastos.adjuntar');
+
+    Route::get(
+        'tickets/{ticket}/gastos/{gasto}/archivo',
+        [TicketGastoController::class, 'archivo']
+    )->name('tickets.gastos.archivo');
+
+    Route::delete(
+        'tickets/{ticket}/gastos/{gasto}',
+        [TicketGastoController::class, 'destroy']
+    )->middleware('role:administrador|cotizador')
+    ->name('tickets.gastos.destroy');
+
+    Route::get(
+        'catalogo',
+        [CatalogoController::class, 'index']
+    )->name('catalogo.index');
+
+    Route::middleware(['role:administrador'])
+        ->prefix('catalogo/servicios')
+        ->name('catalogo.servicios.')
+        ->group(function () {
+
+            Route::get(
+                'crear',
+                [CatalogoServicioController::class, 'create']
+            )->name('create');
+
+            Route::post(
+                '/',
+                [CatalogoServicioController::class, 'store']
+            )->name('store');
+
+            Route::get(
+                '{servicio}/editar',
+                [CatalogoServicioController::class, 'edit']
+            )->name('edit');
+
+            Route::put(
+                '{servicio}',
+                [CatalogoServicioController::class, 'update']
+            )->name('update');
+
+            Route::delete(
+                '{servicio}',
+                [CatalogoServicioController::class, 'destroy']
+            )->name('destroy');
+        });
 
     Route::middleware(['role:administrador|cotizador'])->group(function () {
 
@@ -223,3 +285,5 @@ Route::middleware(['auth', 'verified'])->group(function () {
 });
 
 require __DIR__.'/auth.php';
+
+

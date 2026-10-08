@@ -21,10 +21,13 @@ class SalidaMaterialController extends Controller
         ]);
     }
 
-    public function create()
+ public function create()
     {
         return view('salidas.create', [
-            'materiales' => Material::where('activo', true)->orderByRaw("CAST(regexp_replace(codigo, '[^0-9]', '', 'g') AS INTEGER) ASC")->get(),
+            'materiales' => Material::where('activo', true)
+                ->where('en_bodega', true)
+                ->orderByRaw("CAST(regexp_replace(codigo, '[^0-9]', '', 'g') AS INTEGER) ASC")
+                ->get(),
             'tickets' => Ticket::orderByDesc('id')->limit(50)->get(),
         ]);
     }

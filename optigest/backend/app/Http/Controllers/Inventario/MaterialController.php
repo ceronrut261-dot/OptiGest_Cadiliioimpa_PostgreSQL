@@ -23,6 +23,12 @@ class MaterialController extends Controller
             });
         }
 
+        if ($request->get('tipo') === 'bodega') {
+            $query->enBodega();
+        } elseif ($request->get('tipo') === 'cotizable') {
+            $query->soloCotizable();
+        }
+
         if ($request->boolean('bajo_stock')) {
             $query->bajoStock();
         }
@@ -31,7 +37,7 @@ class MaterialController extends Controller
 
         return view('inventario.materiales.index', [
             'materiales' => $materiales,
-            'totalBajoStock' => Material::bajoStock()->count(),
+            'totalBajoStock' => Material::bajoStock()->where('activo', true)->count(),
         ]);
     }
 
@@ -45,7 +51,15 @@ class MaterialController extends Controller
     public function store(Request $request)
     {
         $datos = $this->validarDatos($request);
-        $datos['codigo'] = Material::generarCodigo();
+        
+        // Código manual o generado automáticamente
+        $datos['codigo'] = !empty($datos['codigo']) ? trim($datos['codigo']) : Material::generarCodigo();
+        $datos['en_bodega'] = $request->boolean('en_bodega');
+
+        if (! $datos['en_bodega']) {
+            $datos['stock'] = 0;
+            $datos['stock_minimo'] = 0;
+        }
 
         $material = Material::create($datos);
 
@@ -64,7 +78,12 @@ class MaterialController extends Controller
     public function update(Request $request, Material $material)
     {
         $datos = $this->validarDatos($request, $material->id);
+        $datos['en_bodega'] = $request->boolean('en_bodega');
         unset($datos['stock']);
+
+        if (! $datos['en_bodega']) {
+            $datos['stock_minimo'] = 0;
+        }
 
         $material->update($datos);
 
@@ -80,10 +99,6 @@ class MaterialController extends Controller
             ->with('status', "Material {$material->codigo} desactivado.");
     }
 
-    /**
-     * Comparación de precios por proveedor para un material (lo que
-     * pidió la empresa: ver cuál proveedor conviene más).
-     */
     public function precios(Material $material)
     {
         return view('inventario.materiales.precios', [
@@ -118,14 +133,21 @@ class MaterialController extends Controller
     private function validarDatos(Request $request, ?int $idIgnorar = null): array
     {
         return $request->validate([
+            'codigo' => [
+                'nullable',
+                'string',
+                'max:50',
+                Rule::unique('materiales', 'codigo')->ignore($idIgnorar),
+            ],
             'nombre' => ['required', 'string', 'max:255'],
             'categoria' => ['required', 'string', 'max:100'],
             'descripcion' => ['nullable', 'string'],
             'precio' => ['required', 'numeric', 'min:0'],
             'stock' => ['nullable', 'integer', 'min:0'],
-            'stock_minimo' => ['required', 'integer', 'min:0'],
+            'stock_minimo' => ['nullable', 'integer', 'min:0'],
             'unidad_medida' => ['required', 'string', 'max:30'],
             'proveedor_id' => ['nullable', Rule::exists('proveedores', 'id')],
+            'en_bodega' => ['nullable', 'boolean'],
         ]);
     }
 }

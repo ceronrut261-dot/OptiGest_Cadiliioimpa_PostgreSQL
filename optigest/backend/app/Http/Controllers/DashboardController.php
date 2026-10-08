@@ -19,6 +19,7 @@ class DashboardController extends Controller
             'cotizaciones_pendientes' => Cotizacion::where('estado', 'enviada')->count(),
             'materiales_bajo_stock' => Material::bajoStock()->where('activo', true)->count(),
             'valor_inventario' => Material::where('activo', true)
+                ->where('en_bodega', true)
                 ->selectRaw('COALESCE(SUM(precio * stock), 0) as total')
                 ->value('total'),
         ];
@@ -30,7 +31,6 @@ class DashboardController extends Controller
             ->selectRaw('AVG(EXTRACT(EPOCH FROM (updated_at - created_at)) / 3600) as promedio')
             ->value('promedio');
 
-        // Indicadores de dinero: solo se muestran a administrador/cotizador.
         $veFinanzas = auth()->user()->hasRole(['administrador', 'cotizador']);
         $finanzas = $veFinanzas ? [
             'ingreso_mes' => (float) Cotizacion::where('estado', 'aprobada')
