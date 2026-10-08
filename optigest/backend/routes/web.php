@@ -112,6 +112,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::middleware(['role:administrador|cotizador'])->group(function () {
 
+        // Endpoint API para el buscador modal comparador de proveedores
+        Route::get(
+            'api/materiales/comparar-precios',
+            [ProveedorController::class, 'compararPreciosApi']
+        )->name('materiales.comparar.api');
+
         Route::get(
             'proveedores/{proveedor}/catalogo',
             [ProveedorController::class, 'catalogo']

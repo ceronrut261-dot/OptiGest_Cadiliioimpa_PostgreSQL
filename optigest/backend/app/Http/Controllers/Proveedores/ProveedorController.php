@@ -166,6 +166,46 @@ class ProveedorController extends Controller
         return $pdf->stream("Solicitud_Cotizacion_{$proveedor->nombre}.pdf");
     }
 
+    /**
+     * Endpoint API para consultar y comparar precios entre proveedores en tiempo real.
+     */
+    public function compararPreciosApi(Request $request)
+    {
+        $busqueda = trim($request->get('q', ''));
+
+        if (strlen($busqueda) < 2) {
+            return response()->json([]);
+        }
+
+        $materiales = Material::with(['preciosProveedor.proveedor'])
+            ->where('activo', true)
+            ->where(function ($q) use ($busqueda) {
+                $q->where('nombre', 'ilike', "%{$busqueda}%")
+                  ->orWhere('codigo', 'ilike', "%{$busqueda}%");
+            })
+            ->take(15)
+            ->get()
+            ->map(function ($material) {
+                return [
+                    'id' => $material->id,
+                    'codigo' => $material->codigo,
+                    'nombre' => $material->nombre,
+                    'precios' => $material->preciosProveedor->map(function ($pp) {
+                        return [
+                            'proveedor_id' => $pp->proveedor_id,
+                            'precio' => (float)$pp->precio,
+                            'proveedor' => [
+                                'id' => $pp->proveedor->id,
+                                'nombre' => $pp->proveedor->nombre,
+                            ]
+                        ];
+                    })
+                ];
+            });
+
+        return response()->json($materiales);
+    }
+
     private function validarDatos(Request $request): array
     {
         return $request->validate([
