@@ -16,11 +16,13 @@ class CatalogoController extends Controller
         $busqueda = $request->get('q');
         $categoria = $request->get('categoria');
 
-        // Categorías existentes para los select de filtro
+        // Categorías existentes para los filtros
         $categorias = Material::select('categoria')->distinct()->whereNotNull('categoria')->pluck('categoria');
 
-        // 1. Materiales de Bodega (Pestaña actual)
-        $materialesQuery = Material::where('activo', true);
+        // 1. MATERIALES EN BODEGA (Únicamente los físicos con stock)
+        $materialesQuery = Material::where('activo', true)
+            ->where('en_bodega', true);
+
         if ($busqueda) {
             $materialesQuery->where(function ($q) use ($busqueda) {
                 $q->where('nombre', 'like', "%{$busqueda}%")
@@ -33,11 +35,12 @@ class CatalogoController extends Controller
         }
         $materiales = $materialesQuery->orderBy('nombre')->paginate(12, ['*'], 'mat_page')->withQueryString();
 
-        // 2. Servicios (Pestaña actual)
+        // 2. SERVICIOS Y MANO DE OBRA
         $servicios = CatalogoServicio::where('activo', true)->orderBy('categoria')->orderBy('nombre')->get();
 
-        // 3. Catálogo de Proveedores y Comparador de Precios (NUEVA PESTAÑA)
+        // 3. CATÁLOGO DE PROVEEDORES (Materiales de compra / solo cotizables)
         $proveedoresQuery = Material::where('activo', true)
+            ->where('en_bodega', false)
             ->with(['proveedor', 'preciosProveedor.proveedor']);
 
         if ($busqueda) {
