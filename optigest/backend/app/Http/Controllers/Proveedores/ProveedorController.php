@@ -135,16 +135,24 @@ class ProveedorController extends Controller
     /**
      * Muestra la vista interactiva para ingresar cantidades y calcular
      * el presupuesto estimado antes de enviar la cotización.
+     * Carga tanto los insumos del proveedor como todos los materiales disponibles.
      */
     public function solicitudCotizacion(Proveedor $proveedor)
     {
         $precios = $proveedor->preciosProveedor()->with('material')->get();
 
-        return view('proveedores.solicitud_cotizacion', compact('proveedor', 'precios'));
+        // Obtenemos todos los materiales activos de otros proveedores para poder agregarlos si este no los tiene
+        $todosLosMateriales = Material::with(['proveedor', 'preciosProveedor.proveedor'])
+            ->where('activo', true)
+            ->orderBy('nombre')
+            ->get();
+
+        return view('proveedores.solicitud_cotizacion', compact('proveedor', 'precios', 'todosLosMateriales'));
     }
 
     /**
-     * Genera el PDF formal de la solicitud de cotización con los insumos seleccionados.
+     * Genera el PDF formal de la solicitud de cotización con los insumos seleccionados,
+     * conservando la procedencia/proveedor de cada ítem.
      */
     public function exportarSolicitudPdf(Request $request, Proveedor $proveedor)
     {
@@ -167,7 +175,8 @@ class ProveedorController extends Controller
     }
 
     /**
-     * Endpoint API para consultar y comparar precios entre proveedores en tiempo real.
+     * Endpoint API para consultar y comparar precios entre proveedores en tiempo real
+     * utilizado por el buscador modal en Cotizaciones.
      */
     public function compararPreciosApi(Request $request)
     {
