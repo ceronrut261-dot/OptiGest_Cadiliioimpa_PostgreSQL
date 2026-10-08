@@ -202,8 +202,8 @@ document.addEventListener('DOMContentLoaded', function () {
                             : '<span class="badge bg-light text-muted border">Más caro</span>'}
                     </td>
                     <td class="text-end">
-                        <a href="/proveedores/${p.proveedor_id}/solicitud" class="btn btn-outline-primary btn-sm py-0 px-2" title="Cotizar a este proveedor">
-                            Cotizar
+                        <a href="/proveedores/${p.proveedor_id}/solicitud-cotizacion" target="_blank" class="btn btn-outline-primary btn-sm py-0 px-2" title="Abrir solicitud de cotización para este proveedor">
+                            <i class="bi bi-file-earmark-pdf me-1"></i> Cotizar
                         </a>
                     </td>
                 `;
