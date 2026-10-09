@@ -175,8 +175,8 @@ class ProveedorController extends Controller
     }
 
     /**
-     * Endpoint API para consultar y comparar precios entre proveedores en tiempo real
-     * utilizado por el buscador modal en Cotizaciones.
+     * Endpoint API para consultar y comparar precios entre proveedores en tiempo real.
+     * Si no tiene cotizaciones registradas, toma el proveedor base del material.
      */
     public function compararPreciosApi(Request $request)
     {
@@ -186,7 +186,7 @@ class ProveedorController extends Controller
             return response()->json([]);
         }
 
-        $materiales = Material::with(['preciosProveedor.proveedor'])
+        $materiales = Material::with(['proveedor', 'preciosProveedor.proveedor'])
             ->where('activo', true)
             ->where(function ($q) use ($busqueda) {
                 $q->where('nombre', 'ilike', "%{$busqueda}%")
@@ -195,26 +195,41 @@ class ProveedorController extends Controller
             ->take(15)
             ->get()
             ->map(function ($material) {
+                // Obtener precios de la tabla comparativa
+                $precios = $material->preciosProveedor->map(function ($pp) {
+                    return [
+                        'proveedor_id' => $pp->proveedor_id,
+                        'precio' => (float)$pp->precio,
+                        'proveedor' => [
+                            'id' => $pp->proveedor->id,
+                            'nombre' => $pp->proveedor->nombre,
+                        ]
+                    ];
+                })->toArray();
+
+                // Si no tiene registros en la tabla comparativa pero sí tiene proveedor asignado directo
+                if (empty($precios) && $material->proveedor) {
+                    $precios[] = [
+                        'proveedor_id' => $material->proveedor->id,
+                        'precio' => (float)$material->precio,
+                        'proveedor' => [
+                            'id' => $material->proveedor->id,
+                            'nombre' => $material->proveedor->nombre,
+                        ]
+                    ];
+                }
+
                 return [
                     'id' => $material->id,
                     'codigo' => $material->codigo,
                     'nombre' => $material->nombre,
-                    'precios' => $material->preciosProveedor->map(function ($pp) {
-                        return [
-                            'proveedor_id' => $pp->proveedor_id,
-                            'precio' => (float)$pp->precio,
-                            'proveedor' => [
-                                'id' => $pp->proveedor->id,
-                                'nombre' => $pp->proveedor->nombre,
-                            ]
-                        ];
-                    })
+                    'precios' => $precios
                 ];
             });
 
         return response()->json($materiales);
     }
-
+    
     private function validarDatos(Request $request): array
     {
         return $request->validate([
