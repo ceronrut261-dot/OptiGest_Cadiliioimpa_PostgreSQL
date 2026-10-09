@@ -1,7 +1,6 @@
 @extends('layouts.app')
 @section('titulo', 'Nueva cotización')
 
-{{-- Estilos de TomSelect compatibles con Bootstrap 5 --}}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.bootstrap5.min.css">
 <style>
     .ts-dropdown { z-index: 1055 !important; }
@@ -19,8 +18,8 @@
         <div class="d-flex gap-2">
             <select name="cliente_id" id="select-cliente" class="form-select" required>
                 <option value="">— Selecciona un cliente —</option>
-                <?php foreach ($clientes as$cliente): ?>
-                    <option value="{{ $cliente->id }}">{{ $cliente->nombre }}{{ $cliente->telefono ? ' — ' . $cliente->telefono : '' }}</option>
+                <?php foreach ($clientes as$cli): ?>
+                    <option value="{{ $cli->id }}">{{ $cli->nombre }}{{ $cli->telefono ? ' — ' . $cli->telefono : '' }}</option>
                 <?php endforeach; ?>
             </select>
             <a href="{{ route('clientes.create', ['origen' => 'cotizacion']) }}" target="_blank" class="btn btn-outline-secondary text-nowrap">Cliente nuevo</a>
@@ -31,8 +30,8 @@
         <label class="form-label small">Ticket relacionado (opcional)</label>
         <select name="ticket_id" class="form-select">
             <option value="">— Ninguno —</option>
-            <?php foreach ($tickets as$ticket): ?>
-                <option value="{{ $ticket->id }}">{{ $ticket->codigo }} — {{$ticket->cliente->nombre }}</option>
+            <?php foreach ($tickets as$tck): ?>
+                <option value="{{ $tck->id }}">{{ $tck->codigo }} — {{$tck->cliente->nombre ?? 'Sin cliente' }}</option>
             <?php endforeach; ?>
         </select>
     </div>
@@ -43,19 +42,30 @@
             <div class="col-8">
                 <select name="materiales[0][id]" class="form-select form-select-sm select-material">
                     <option value="">— Buscar o seleccionar material —</option>
-                    <?php foreach ($materiales as$material): 
-                        $comp =$material->comparativaProveedores();
-                        $enBodega =$material->en_bodega ? '1' : '0';
-                        $proveedor =$comp['mas_barato']['proveedor'] ?? '';
-                        $precioProv =$comp['mas_barato']['precio'] ?? '';
-                    ?>
-                        <option value="{{ $material->id }}" 
-                                data-en-bodega="{{ $enBodega }}" 
-                                data-proveedor="{{ $proveedor }}" 
-                                data-precio="{{ $precioProv }}">
-                            {{ $material->codigo }} — {{ $material->nombre }} ({{$material->en_bodega ? 'Stock: ' . $material->stock : 'Solo cotizable' }}) — Q{{ number_format($material->precio, 2) }}
-                        </option>
-                    <?php endforeach; ?>
+                    
+                    <optgroup label="📦 Existencias en Bodega">
+                        <?php foreach ($materialesBodega as$mBod): ?>
+                            <option value="{{ $mBod['id'] }}" 
+                                    data-en-bodega="1" 
+                                    data-proveedor="{{ $mBod['proveedor'] }}" 
+                                    data-precio="{{ $mBod['precio_prov'] }}">
+                                {{ $mBod['codigo'] }} — {{$mBod['nombre'] }} (Stock: {{ $mBod['stock'] }}) — Q{{ number_format($mBod['precio'], 2) }}
+                            </option>
+                        <?php endforeach; ?>
+                    </optgroup>
+
+                    <?php if (!empty($materialesExternos)): ?>
+                        <optgroup label="🏭 Catálogo de Proveedores (Solo cotizable)">
+                            <?php foreach ($materialesExternos as$mExt): ?>
+                                <option value="{{ $mExt['id'] }}" 
+                                        data-en-bodega="0" 
+                                        data-proveedor="{{ $mExt['proveedor'] }}" 
+                                        data-precio="{{ $mExt['precio_prov'] }}">
+                                    {{ $mExt['codigo'] }} — {{ $mExt['nombre'] }} (Solo cotizable) — Q{{ number_format($mExt['precio'], 2) }}
+                                </option>
+                            <?php endforeach; ?>
+                        </optgroup>
+                    <?php endif; ?>
                 </select>
                 <div class="box-comparativa mt-1 small"></div>
             </div>
@@ -67,6 +77,7 @@
             </div>
         </div>
     </div>
+    
     <button type="button" class="btn btn-sm btn-outline-secondary mb-3" id="agregar-linea">
         <i class="bi bi-plus-lg"></i> Agregar material
     </button>
@@ -77,9 +88,9 @@
             <div class="col-7">
                 <select name="servicios[0][id]" class="form-select form-select-sm select-servicio">
                     <option value="">— Buscar o seleccionar servicio —</option>
-                    <?php foreach ($servicios as$servicio): ?>
-                        <option value="{{ $servicio->id }}" data-precio="{{ $servicio->precio_estandar }}">
-                            {{ $servicio->nombre }} — Q{{ number_format($servicio->precio_estandar, 2) }} / {{$servicio->unidad }}
+                    <?php foreach ($servicios as$srv): ?>
+                        <option value="{{ $srv->id }}" data-precio="{{ $srv->precio_estandar }}">
+                            {{ $srv->nombre }} — Q{{ number_format($srv->precio_estandar, 2) }} / {{$srv->unidad }}
                         </option>
                     <?php endforeach; ?>
                 </select>
@@ -92,6 +103,7 @@
             </div>
         </div>
     </div>
+    
     <button type="button" class="btn btn-sm btn-outline-secondary mb-2" id="agregar-servicio">
         <i class="bi bi-plus-lg"></i> Agregar servicio
     </button>
@@ -108,7 +120,7 @@
 
     <div class="form-check mb-3">
         <input class="form-check-input" type="checkbox" name="aplicar_iva" value="1" id="aplicar_iva">
-        <label class="form-check-label small" for="aplicar_iva">Aplicar IVA ({{ rtrim(rtrim(number_format($ivaTasa * 100, 2), '0'), '.') }} %)</label>
+        <label class="form-check-label small" for="aplicar_iva">Aplicar IVA ({{ rtrim(rtrim(number_format(($ivaTasa ?? 0.12) * 100, 2), '0'), '.') }} %)</label>
     </div>
 
     <div class="mb-3">
@@ -120,14 +132,74 @@
     <a href="{{ route('cotizaciones.index') }}" class="btn btn-outline-secondary">Cancelar</a>
 </form>
 
-{{-- Script de TomSelect --}}
+{{-- PLANTILLA PARA NUEVOS MATERIALES --}}
+<template id="tpl-material">
+    <div class="row g-2 mb-2 linea-material align-items-start border-bottom pb-2">
+        <div class="col-8">
+            <select name="materiales[INDEX][id]" class="form-select form-select-sm select-material">
+                <option value="">— Buscar o seleccionar material —</option>
+                <optgroup label="📦 Existencias en Bodega">
+                    <?php foreach ($materialesBodega as$mBod): ?>
+                        <option value="{{ $mBod['id'] }}" 
+                                data-en-bodega="1" 
+                                data-proveedor="{{ $mBod['proveedor'] }}" 
+                                data-precio="{{ $mBod['precio_prov'] }}">
+                            {{ $mBod['codigo'] }} — {{$mBod['nombre'] }} (Stock: {{ $mBod['stock'] }}) — Q{{ number_format($mBod['precio'], 2) }}
+                        </option>
+                    <?php endforeach; ?>
+                </optgroup>
+                <?php if (!empty($materialesExternos)): ?>
+                    <optgroup label="🏭 Catálogo de Proveedores (Solo cotizable)">
+                        <?php foreach ($materialesExternos as$mExt): ?>
+                            <option value="{{ $mExt['id'] }}" 
+                                    data-en-bodega="0" 
+                                    data-proveedor="{{ $mExt['proveedor'] }}" 
+                                    data-precio="{{ $mExt['precio_prov'] }}">
+                                {{ $mExt['codigo'] }} — {{ $mExt['nombre'] }} (Solo cotizable) — Q{{ number_format($mExt['precio'], 2) }}
+                            </option>
+                        <?php endforeach; ?>
+                    </optgroup>
+                <?php endif; ?>
+            </select>
+            <div class="box-comparativa mt-1 small"></div>
+        </div>
+        <div class="col-3">
+            <input type="number" name="materiales[INDEX][cantidad]" min="1" value="1" class="form-control form-control-sm" placeholder="Cantidad">
+        </div>
+        <div class="col-1 text-end">
+            <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2 btn-eliminar-linea" title="Quitar">&times;</button>
+        </div>
+    </div>
+</template>
+
+{{-- PLANTILLA PARA NUEVOS SERVICIOS --}}
+<template id="tpl-servicio">
+    <div class="row g-2 mb-2 linea-servicio align-items-start border-bottom pb-2">
+        <div class="col-7">
+            <select name="servicios[INDEX][id]" class="form-select form-select-sm select-servicio">
+                <option value="">— Buscar o seleccionar servicio —</option>
+                <?php foreach ($servicios as$srv): ?>
+                    <option value="{{ $srv->id }}" data-precio="{{ $srv->precio_estandar }}">
+                        {{ $srv->nombre }} — Q{{ number_format($srv->precio_estandar, 2) }} / {{$srv->unidad }}
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div class="col-3">
+            <input type="number" name="servicios[INDEX][cantidad]" min="0.01" step="0.01" value="1" class="form-control form-control-sm" placeholder="Cantidad">
+        </div>
+        <div class="col-2 text-end">
+            <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2 btn-eliminar-servicio" title="Quitar">&times;</button>
+        </div>
+    </div>
+</template>
+
 <script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-
     const configTomSelect = {
         create: false,
-        maxOptions: 100,
+        maxOptions: 150,
         placeholder: 'Escribe para buscar...',
         allowEmptyOption: true,
         plugins: ['dropdown_input'],
@@ -139,24 +211,25 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function inicializarBuscadorMaterial(select) {
-        if (select.tomselect) return select.tomselect;
+        if (!select || select.tomselect) return select.tomselect;
 
-        const ts = new TomSelect(select, {
+        return new TomSelect(select, {
             ...configTomSelect,
             onChange: function() {
                 actualizarSugerencia(select);
             }
         });
-        return ts;
     }
 
     function inicializarBuscadorServicio(select) {
-        if (select.tomselect) return select.tomselect;
+        if (!select || select.tomselect) return select.tomselect;
         return new TomSelect(select, configTomSelect);
     }
 
     function actualizarSugerencia(select) {
-        const contenedor = select.closest('.linea-material').querySelector('.box-comparativa');
+        const fila = select.closest('.linea-material');
+        if (!fila) return;
+        const contenedor = fila.querySelector('.box-comparativa');
         const opcion = select.options[select.selectedIndex];
         
         if (!opcion || !opcion.value) {
@@ -170,7 +243,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         let html = '';
         if (!enBodega) {
-            html += '<span class="badge bg-warning text-dark me-1"><i class="bi bi-cart-plus"></i> Comprar a proveedor</span> ';
+            html += '<span class="badge bg-warning text-dark me-1"><i class="bi bi-cart-plus"></i> Proveedor externo</span> ';
         } else {
             html += '<span class="badge bg-primary me-1">En bodega</span> ';
         }
@@ -178,7 +251,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (proveedor && precio) {
             html += `<span class="text-success fw-bold">Más económico: ${proveedor} (Q${parseFloat(precio).toFixed(2)})</span>`;
         } else {
-            html += '<span class="text-muted fst-italic">Sin precios de compra registrados</span>';
+            html += '<span class="text-muted fst-italic">Sin comparativa disponible</span>';
         }
 
         contenedor.innerHTML = html;
@@ -194,46 +267,39 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     const contenedorMateriales = document.getElementById('lineas-materiales');
-    const plantillaMaterial = contenedorMateriales.querySelector('.linea-material').cloneNode(true);
-    plantillaMaterial.querySelectorAll('.ts-wrapper').forEach(el => el.remove());
-    plantillaMaterial.querySelector('.select-material').style.display = '';
-
-    const contenedorServicios = document.getElementById('lineas-servicios');
-    const plantillaServicio = contenedorServicios.querySelector('.linea-servicio').cloneNode(true);
-    plantillaServicio.querySelectorAll('.ts-wrapper').forEach(el => el.remove());
-    plantillaServicio.querySelector('.select-servicio').style.display = '';
-
+    const tplMaterial = document.getElementById('tpl-material');
     let contadorMateriales = 1;
-    document.getElementById('agregar-linea').addEventListener('click', function () {
-        const nuevaFila = plantillaMaterial.cloneNode(true);
 
-        nuevaFila.querySelectorAll('select, input').forEach(el => {
-            el.name = el.name.replace(/\[\d+\]/, `[${contadorMateriales}]`);
-            if (el.tagName === 'INPUT') el.value = 1;
-            if (el.tagName === 'SELECT') el.value = '';
+    document.getElementById('agregar-linea').addEventListener('click', function () {
+        const clon = tplMaterial.content.cloneNode(true);
+        const fila = clon.querySelector('.linea-material');
+
+        fila.querySelectorAll('select, input').forEach(el => {
+            el.name = el.name.replace('INDEX', contadorMateriales);
         });
 
-        nuevaFila.querySelector('.box-comparativa').innerHTML = '';
-        contenedorMateriales.appendChild(nuevaFila);
+        contenedorMateriales.appendChild(fila);
 
-        const selectNuevo = nuevaFila.querySelector('.select-material');
+        const selectNuevo = fila.querySelector('.select-material');
         inicializarBuscadorMaterial(selectNuevo);
         contadorMateriales++;
     });
 
+    const contenedorServicios = document.getElementById('lineas-servicios');
+    const tplServicio = document.getElementById('tpl-servicio');
     let contadorServicios = 1;
-    document.getElementById('agregar-servicio').addEventListener('click', function () {
-        const nuevaFila = plantillaServicio.cloneNode(true);
 
-        nuevaFila.querySelectorAll('select, input').forEach(el => {
-            el.name = el.name.replace(/\[\d+\]/, `[${contadorServicios}]`);
-            if (el.tagName === 'INPUT') el.value = 1;
-            if (el.tagName === 'SELECT') el.value = '';
+    document.getElementById('agregar-servicio').addEventListener('click', function () {
+        const clon = tplServicio.content.cloneNode(true);
+        const fila = clon.querySelector('.linea-servicio');
+
+        fila.querySelectorAll('select, input').forEach(el => {
+            el.name = el.name.replace('INDEX', contadorServicios);
         });
 
-        contenedorServicios.appendChild(nuevaFila);
+        contenedorServicios.appendChild(fila);
 
-        const selectNuevo = nuevaFila.querySelector('.select-servicio');
+        const selectNuevo = fila.querySelector('.select-servicio');
         inicializarBuscadorServicio(selectNuevo);
         contadorServicios++;
     });

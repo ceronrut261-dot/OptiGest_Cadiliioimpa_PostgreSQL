@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Cotizaciones;
 
 use App\Http\Controllers\Controller;
-use App\Http\Controllers\Inventario\MovimientoInventarioController;
 use App\Models\Cliente;
 use App\Models\CatalogoServicio;
 use App\Models\Cotizacion;
@@ -32,21 +31,39 @@ class CotizacionController extends Controller
 
     public function create()
     {
-        $materiales = Material::where('activo', true)->with('proveedor')->orderByRaw("CAST(regexp_replace(codigo, '[^0-9]', '', 'g') AS INTEGER) ASC")->get();
+        $todosMateriales = Material::where('activo', true)
+            ->with('proveedor')
+            ->orderByRaw("CAST(regexp_replace(codigo, '[^0-9]', '', 'g') AS INTEGER) ASC")
+            ->get();
 
-        // Para cada material, calcula cuál es el proveedor más barato
-        // (comparando el proveedor de catálogo contra los registrados
-        // en precios_proveedor_material). Esto es lo que pidió la
-        // empresa: sugerir al cotizador el proveedor que más conviene.
-        $mejoresProveedores = $materiales->mapWithKeys(function ($material) {
-            return [$material->id => $material->mejorProveedor()];
-        });
+        // Estructuración de datos para evitar llamadas a métodos dentro de la vista Blade
+        $materialesBodega = [];
+        $materialesExternos = [];
+
+        foreach ($todosMateriales as $mat) {
+            $comp = $mat->comparativaProveedores();
+            $item = [
+                'id' => $mat->id,
+                'codigo' => $mat->codigo,
+                'nombre' => $mat->nombre,
+                'stock' => $mat->stock,
+                'precio' => (float) $mat->precio,
+                'proveedor' => $comp['mas_barato']['proveedor'] ?? '',
+                'precio_prov' => $comp['mas_barato']['precio'] ?? '',
+            ];
+
+            if ($mat->en_bodega) {
+                $materialesBodega[] = $item;
+            } else {
+                $materialesExternos[] = $item;
+            }
+        }
 
         return view('cotizaciones.create', [
-            'materiales' => $materiales,
-            'mejoresProveedores' => $mejoresProveedores,
+            'materialesBodega' => $materialesBodega,
+            'materialesExternos' => $materialesExternos,
             'servicios' => CatalogoServicio::where('activo', true)->orderBy('categoria')->orderBy('nombre')->get(),
-            'ivaTasa' => config('optigest.iva'),
+            'ivaTasa' => config('optigest.iva', 0.12),
             'tickets' => Ticket::whereIn('estado', ['pendiente', 'asignado', 'en_proceso'])->with('cliente')->orderByDesc('id')->get(),
             'clientes' => Cliente::orderBy('nombre')->get(),
         ]);
@@ -67,14 +84,14 @@ class CotizacionController extends Controller
             'aplicar_iva' => ['nullable', 'boolean'],
         ]);
 
-        // Solo cuentan las líneas con algo seleccionado.
         $lineasMateriales = collect($datos['materiales'] ?? [])->filter(fn ($l) => ! empty($l['id']))->values();
         $lineasServicios = collect($datos['servicios'] ?? [])->filter(fn ($l) => ! empty($l['id']))->values();
 
-        // Con ticket, los gastos adicionales cobrables también cuentan como contenido.
         $tieneGastos = ! empty($datos['ticket_id'])
             && \App\Models\TicketGasto::where('ticket_id', $datos['ticket_id'])
-                ->where('cobrar_al_cliente', true)->whereNull('cotizacion_id')->exists();
+                ->where('cobrar_al_cliente', true)
+                ->whereNull('cotizacion_id')
+                ->exists();
 
         if ($lineasMateriales->isEmpty() && $lineasServicios->isEmpty() && ! $tieneGastos) {
             throw ValidationException::withMessages([
@@ -96,17 +113,16 @@ class CotizacionController extends Controller
 
             foreach ($lineasMateriales as $linea) {
                 $material = Material::findOrFail($linea['id']);
+                $cantidad = (int) $linea['cantidad'];
 
                 $cotizacion->detalles()->create([
                     'material_id' => $material->id,
-                    'cantidad' => $linea['cantidad'],
+                    'cantidad' => $cantidad,
                     'precio_unitario' => $material->precio,
-                    'subtotal' => $material->precio * $linea['cantidad'],
+                    'subtotal' => round($material->precio * $cantidad, 2),
                 ]);
             }
 
-            // Mano de obra: el precio sale SIEMPRE del catálogo (estandarizado),
-            // nunca de lo que llegue en el formulario.
             foreach ($lineasServicios as $linea) {
                 $servicio = CatalogoServicio::findOrFail($linea['id']);
                 $cantidad = (float) ($linea['cantidad'] ?? 1);
@@ -126,31 +142,29 @@ class CotizacionController extends Controller
         });
 
         return redirect()->route('cotizaciones.show', $cotizacion)
-            ->with('status', "Cotizacion {$cotizacion->codigo} creada en estado borrador.");
+            ->with('status', "Cotización {$cotizacion->codigo} creada en estado borrador.");
     }
 
     public function show(Cotizacion $cotizacion)
     {
-        return view('cotizaciones.show', ['cotizacion' => $cotizacion->load(['detalles.material', 'servicios', 'gastos', 'cotizador', 'ticket', 'cliente'])]);
+        return view('cotizaciones.show', [
+            'cotizacion' => $cotizacion->load(['detalles.material', 'servicios', 'gastos', 'cotizador', 'ticket', 'cliente'])
+        ]);
     }
 
     public function aprobar(Request $request, Cotizacion $cotizacion)
     {
         if ($cotizacion->estado === 'aprobada') {
-            return back()->with('status', 'Esta cotizacion ya fue aprobada anteriormente.');
+            return back()->with('status', 'Esta cotización ya fue aprobada anteriormente.');
         }
 
-        // El stock NO se descuenta al aprobar: sale de bodega solo cuando se
-        // registra la salida de materiales (la entrega física al técnico).
-        // Así un mismo material nunca se descuenta dos veces.
         $cotizacion->update(['estado' => 'aprobada']);
 
-        // Aviso (no bloquea): materiales cuyo stock actual no alcanza para la cotización.
         $faltantes = $cotizacion->detalles()->with('material')->get()
             ->filter(fn ($d) => $d->material && $d->material->stock < $d->cantidad)
             ->map(fn ($d) => "{$d->material->nombre} (disponible: {$d->material->stock}, requerido: {$d->cantidad})");
 
-        $mensaje = "Cotizacion {$cotizacion->codigo} aprobada. El stock se descuenta al registrar la salida de materiales.";
+        $mensaje = "Cotización {$cotizacion->codigo} aprobada. El stock se descuenta al registrar la salida de materiales.";
 
         if ($faltantes->isNotEmpty()) {
             $mensaje .= ' Aviso: stock insuficiente para '.$faltantes->implode(', ').'.';
@@ -162,13 +176,10 @@ class CotizacionController extends Controller
     public function rechazar(Cotizacion $cotizacion)
     {
         $cotizacion->update(['estado' => 'rechazada']);
-
-        // Libera los gastos que esta cotización iba a cobrar, para que otra
-        // cotización del mismo ticket pueda incluirlos.
         $cotizacion->gastos()->update(['cotizacion_id' => null]);
 
         return redirect()->route('cotizaciones.show', $cotizacion)
-            ->with('status', "Cotizacion {$cotizacion->codigo} marcada como rechazada.");
+            ->with('status', "Cotización {$cotizacion->codigo} marcada como rechazada.");
     }
 
     public function exportarPdf(Cotizacion $cotizacion)
