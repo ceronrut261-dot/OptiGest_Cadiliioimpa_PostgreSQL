@@ -74,7 +74,7 @@ class CotizacionController extends Controller
         $datos = $request->validate([
             'cliente_id' => ['required', 'exists:clientes,id'],
             'ticket_id' => ['nullable', 'exists:tickets,id'],
-            'observaciones' => ['nullable', 'string'],
+            'observaciones' => ['nullable', 'string', 'max:1000', 'not_regex:/[<>]/'],
             'materiales' => ['nullable', 'array'],
             'materiales.*.id' => ['nullable', 'exists:materiales,id'],
             'materiales.*.cantidad' => ['nullable', 'integer', 'min:1'],

@@ -99,6 +99,10 @@ class TicketGastoController extends Controller
      */
     public function archivo(Ticket $ticket, TicketGasto $gasto)
     {
+        // Anti-IDOR: sin esto cualquier usuario con sesion podia descargar
+        // el comprobante de cualquier ticket cambiando los numeros de la URL.
+        $this->authorize('view', $ticket);
+
         abort_unless($gasto->ticket_id === $ticket->id && $gasto->archivo_path, 404);
         abort_unless(Storage::disk('local')->exists($gasto->archivo_path), 404);
 
@@ -148,6 +152,8 @@ class TicketGastoController extends Controller
 
     public function destroy(Ticket $ticket, TicketGasto $gasto)
     {
+        $this->authorize('update', $ticket);
+
         abort_unless($gasto->ticket_id === $ticket->id, 404);
 
         $cotizacion = $gasto->cotizacion;

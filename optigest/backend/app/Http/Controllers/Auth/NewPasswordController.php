@@ -27,8 +27,10 @@ class NewPasswordController extends Controller
     {
         $request->validate([
             'token' => ['required'],
-            'email' => ['required', 'email'],
-            'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            'email' => ['required', 'email', 'max:255'],
+            // Misma politica que al crear usuarios: 10+ caracteres, mayuscula, minuscula, numero y simbolo.
+            'password' => ['required', 'confirmed', 'max:128',
+                Rules\Password::min(10)->letters()->mixedCase()->numbers()->symbols()],
         ]);
 
         $status = Password::reset(

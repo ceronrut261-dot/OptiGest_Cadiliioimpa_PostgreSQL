@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Concerns\HasOpaqueRouteKey;
 
 class Cotizacion extends Model
 {
-    use HasFactory;
+    use HasFactory, HasOpaqueRouteKey;
 
     // Se fija explicitamente el nombre de tabla porque Laravel pluraliza
     // "Cotizacion" incorrectamente como "Cotizacions" (no es ingles).

@@ -90,10 +90,12 @@ class ClienteController extends Controller
     private function validarDatos(Request $request): array
     {
         return $request->validate([
-            'nombre' => ['required', 'string', 'max:255'],
-            'telefono' => ['nullable', 'string', 'max:20'],
-            'direccion' => ['nullable', 'string', 'max:255'],
-            'email' => ['nullable', 'email', 'max:255'],
+            // Solo letras (con acentos), numeros y signos comunes de un nombre.
+            'nombre' => ['required', 'string', 'max:150', "regex:/^[\\pL\\pN\\s.,&'\\-]+$/u"],
+            // Solo digitos y signos de telefono, maximo 20 caracteres.
+            'telefono' => ['nullable', 'string', 'max:20', 'regex:/^[0-9+\\-\\s()]{7,20}$/'],
+            'direccion' => ['nullable', 'string', 'max:255', 'not_regex:/[<>]/'],
+            'email' => ['nullable', 'email:rfc', 'max:255'],
         ]);
     }
 }

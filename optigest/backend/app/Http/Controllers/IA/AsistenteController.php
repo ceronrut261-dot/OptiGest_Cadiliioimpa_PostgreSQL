@@ -35,8 +35,13 @@ class AsistenteController extends Controller
 
         $pregunta = trim($datos['pregunta']);
 
+        // El rol decide QUE datos se le entregan al asistente. Esto se
+        // controla aqui, en el servidor: lo que no se incluye en el
+        // contexto, el asistente no puede revelarlo aunque se lo pidan.
+        $veFinanzas = $request->user()->hasRole(['administrador', 'cotizador']);
+
         // 1. Extraer datos operativos desde PostgreSQL
-        $contexto = $this->construirContextoOperativo($pregunta);
+        $contexto = $this->construirContextoOperativo($pregunta, $veFinanzas);
 
         // 2. Consultar el modelo de IA con fallback automático
         $respuesta = $this->consultarGemini(
@@ -59,13 +64,16 @@ class AsistenteController extends Controller
 
     /**
      * Extrae información de PostgreSQL según la pregunta para alimentar al modelo.
+     *
+     * Administrador y cotizador reciben todo. El técnico recibe solo datos
+     * operativos (tickets, stock, movimientos): sin precios, montos de
+     * cotizaciones ni datos de proveedores, igual que en el resto del sistema.
      */
-    private function construirContextoOperativo(string $pregunta): string
+    private function construirContextoOperativo(string $pregunta, bool $veFinanzas): string
     {
         $preguntaNormalizada = mb_strtolower($pregunta);
 
         $totalMateriales = Material::where('activo', true)->count();
-        $totalProveedores = Proveedor::where('activo', true)->count();
 
         // Conteo de tickets según estado
         $ticketsAbiertos = Ticket::whereNotIn('estado', ['completado', 'cancelado'])->count();
@@ -76,8 +84,6 @@ class AsistenteController extends Controller
         $ticketsPrioritarios = Ticket::whereIn('prioridad', ['alta', 'urgente'])
             ->whereNotIn('estado', ['completado', 'cancelado'])
             ->count();
-
-        $totalCotizaciones = Cotizacion::count();
 
         $bajoStock = Material::where('activo', true)
             ->whereColumn('stock', '<=', 'stock_minimo')
@@ -92,62 +98,72 @@ class AsistenteController extends Controller
             str_contains($preguntaNormalizada, 'bomba') ||
             str_contains($preguntaNormalizada, 'producto')
         ) {
+            // El precio solo se consulta y se incluye para roles con acceso a finanzas.
+            $columnas = ['nombre', 'codigo', 'stock', 'stock_minimo', 'unidad_medida'];
+            if ($veFinanzas) {
+                $columnas[] = 'precio';
+            }
+
             $materiales = Material::where('activo', true)
                 ->orderBy('nombre')
-                ->get(['nombre', 'codigo', 'stock', 'stock_minimo', 'precio', 'unidad_medida']);
+                ->get($columnas);
 
             $datosMateriales = $materiales
-                ->map(function ($material) {
-                    return "- {$material->nombre} | código: {$material->codigo} | stock: {$material->stock} | mínimo: {$material->stock_minimo} | precio: Q" . number_format((float) $material->precio, 2) . " | unidad: {$material->unidad_medida}";
+                ->map(function ($material) use ($veFinanzas) {
+                    $linea = "- {$material->nombre} | código: {$material->codigo} | stock: {$material->stock} | mínimo: {$material->stock_minimo}";
+
+                    if ($veFinanzas) {
+                        $linea .= " | precio: Q" . number_format((float) $material->precio, 2);
+                    }
+
+                    return $linea . " | unidad: {$material->unidad_medida}";
                 })
                 ->implode("\n");
         }
 
+        $totalProveedores = '';
         $datosProveedores = '';
-        if (
-            str_contains($preguntaNormalizada, 'proveedor') ||
-            str_contains($preguntaNormalizada, 'proveedores')
-        ) {
-            $proveedores = Proveedor::where('activo', true)
-                ->orderBy('nombre')
-                ->get(['nombre', 'nit', 'contacto', 'telefono', 'email']);
-
-            $datosProveedores = $proveedores
-                ->map(function ($proveedor) {
-                    return "- {$proveedor->nombre} | contacto: " . ($proveedor->contacto ?? 'N/D') . " | teléfono: " . ($proveedor->telefono ?? 'N/D');
-                })
-                ->implode("\n");
-        }
-
-        $datosTickets = implode("\n", [
-            "Tickets abiertos: {$ticketsAbiertos}",
-            "Tickets resueltos / completados: {$ticketsResueltos}",
-            "Tickets pendientes: {$ticketsPendientes}",
-            "Tickets asignados: {$ticketsAsignados}",
-            "Tickets en proceso: {$ticketsEnProceso}",
-            "Tickets prioritarios: {$ticketsPrioritarios}",
-        ]);
-
         $datosCotizaciones = '';
-        if (
-            str_contains($preguntaNormalizada, 'cotizacion') ||
-            str_contains($preguntaNormalizada, 'cotizaciones') ||
-            str_contains($preguntaNormalizada, 'presupuesto')
-        ) {
-            $borradores = Cotizacion::where('estado', 'borrador')->count();
-            $enviadas = Cotizacion::where('estado', 'enviada')->count();
-            $aprobadas = Cotizacion::where('estado', 'aprobada')->count();
-            $rechazadas = Cotizacion::where('estado', 'rechazada')->count();
-            $valorAprobadas = Cotizacion::where('estado', 'aprobada')->sum('total');
 
-            $datosCotizaciones = implode("\n", [
-                "Total de cotizaciones: {$totalCotizaciones}",
-                "Borradores: {$borradores}",
-                "Enviadas: {$enviadas}",
-                "Aprobadas: {$aprobadas}",
-                "Rechazadas: {$rechazadas}",
-                "Valor de aprobadas: Q" . number_format((float) $valorAprobadas, 2),
-            ]);
+        if ($veFinanzas) {
+            $totalProveedores = '- Proveedores activos: ' . Proveedor::where('activo', true)->count();
+
+            if (
+                str_contains($preguntaNormalizada, 'proveedor') ||
+                str_contains($preguntaNormalizada, 'proveedores')
+            ) {
+                $proveedores = Proveedor::where('activo', true)
+                    ->orderBy('nombre')
+                    ->get(['nombre', 'nit', 'contacto', 'telefono', 'email']);
+
+                $datosProveedores = $proveedores
+                    ->map(function ($proveedor) {
+                        return "- {$proveedor->nombre} | contacto: " . ($proveedor->contacto ?? 'N/D') . " | teléfono: " . ($proveedor->telefono ?? 'N/D');
+                    })
+                    ->implode("\n");
+            }
+
+            if (
+                str_contains($preguntaNormalizada, 'cotizacion') ||
+                str_contains($preguntaNormalizada, 'cotizaciones') ||
+                str_contains($preguntaNormalizada, 'presupuesto')
+            ) {
+                $totalCotizaciones = Cotizacion::count();
+                $borradores = Cotizacion::where('estado', 'borrador')->count();
+                $enviadas = Cotizacion::where('estado', 'enviada')->count();
+                $aprobadas = Cotizacion::where('estado', 'aprobada')->count();
+                $rechazadas = Cotizacion::where('estado', 'rechazada')->count();
+                $valorAprobadas = Cotizacion::where('estado', 'aprobada')->sum('total');
+
+                $datosCotizaciones = implode("\n", [
+                    "Total de cotizaciones: {$totalCotizaciones}",
+                    "Borradores: {$borradores}",
+                    "Enviadas: {$enviadas}",
+                    "Aprobadas: {$aprobadas}",
+                    "Rechazadas: {$rechazadas}",
+                    "Valor de aprobadas: Q" . number_format((float) $valorAprobadas, 2),
+                ]);
+            }
         }
 
         $datosMovimientos = '';
@@ -165,9 +181,22 @@ class AsistenteController extends Controller
             ]);
         }
 
+        $datosTickets = implode("\n", [
+            "Tickets abiertos: {$ticketsAbiertos}",
+            "Tickets resueltos / completados: {$ticketsResueltos}",
+            "Tickets pendientes: {$ticketsPendientes}",
+            "Tickets asignados: {$ticketsAsignados}",
+            "Tickets en proceso: {$ticketsEnProceso}",
+            "Tickets prioritarios: {$ticketsPrioritarios}",
+        ]);
+
         $detalleBajoStock = $bajoStock->map(function ($material) {
             return "- {$material->nombre}: stock {$material->stock}, mínimo {$material->stock_minimo}";
         })->implode("\n");
+
+        $reglaRol = $veFinanzas
+            ? ''
+            : "5. El usuario que pregunta es personal técnico. No tiene acceso a precios, montos, cotizaciones ni datos de proveedores: si pregunta por eso, responde que su rol no tiene acceso a esa información y ofrécele ayuda con tickets, inventario y movimientos.\n";
 
         return <<<CONTEXTO
 Eres el asistente inteligente de OptiGest (Constru Fontanería Cadiliompa).
@@ -177,10 +206,10 @@ REGLAS DE RESPUESTA:
 2. Utiliza los DATOS INTERNOS proporcionados a continuación para responder sobre el negocio.
 3. Para montos o precios internos, exprésalos en Quetzales (Q).
 4. No menciones "según los datos proporcionados" ni des explicaciones redundantes; entrega la respuesta concreta.
-
+{$reglaRol}
 DATOS OPERATIVOS DE OPTIGEST:
 - Materiales activos en sistema: {$totalMateriales}
-- Proveedores activos: {$totalProveedores}
+{$totalProveedores}
 
 ESTADO DE TICKETS:
 {$datosTickets}
@@ -239,10 +268,14 @@ CONTEXTO;
         $ultimoError = '';
 
         foreach ($modelos as $modelo) {
-            $url = "https://generativelanguage.googleapis.com/v1beta/models/{$modelo}:generateContent?key={$apiKey}";
+            // La llave va en un encabezado, no en la URL: asi no queda
+            // registrada en logs ni en mensajes de error.
+            $url = "https://generativelanguage.googleapis.com/v1beta/models/{$modelo}:generateContent";
 
             try {
-                $response = Http::timeout(25)->post($url, $payload);
+                $response = Http::timeout(25)
+                    ->withHeaders(['x-goog-api-key' => $apiKey])
+                    ->post($url, $payload);
 
                 if ($response->successful()) {
                     $datos = $response->json();
@@ -264,7 +297,10 @@ CONTEXTO;
                     return 'Límite de consultas por minuto alcanzado. Espera unos segundos y vuelve a preguntar.';
                 }
 
-                $ultimoError = 'Error de comunicación: ' . $response->body();
+                // No se devuelve el cuerpo de la respuesta al usuario (puede
+                // contener detalles internos); queda solo en el log.
+                \Log::warning('Asistente IA: error del proveedor', ['status' => $status]);
+                $ultimoError = 'No se pudo completar la consulta al asistente. Intenta nuevamente.';
 
             } catch (\Illuminate\Http\Client\ConnectionException $e) {
                 continue;

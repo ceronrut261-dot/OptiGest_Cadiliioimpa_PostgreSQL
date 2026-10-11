@@ -226,6 +226,14 @@ document.addEventListener('DOMContentLoaded', function () {
         return new TomSelect(select, configTomSelect);
     }
 
+    // Anti-XSS: todo texto que viene de la base de datos y se inserta con
+    // innerHTML pasa primero por esta funcion.
+    function escapeHtml(valor) {
+        return String(valor ?? '').replace(/[&<>"']/g, c => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[c]));
+    }
+
     function actualizarSugerencia(select) {
         const fila = select.closest('.linea-material');
         if (!fila) return;
@@ -249,7 +257,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         if (proveedor && precio) {
-            html += `<span class="text-success fw-bold">Más económico: ${proveedor} (Q${parseFloat(precio).toFixed(2)})</span>`;
+            html += `<span class="text-success fw-bold">Más económico: ${escapeHtml(proveedor)} (Q${(parseFloat(precio) || 0).toFixed(2)})</span>`;
         } else {
             html += '<span class="text-muted fst-italic">Sin comparativa disponible</span>';
         }

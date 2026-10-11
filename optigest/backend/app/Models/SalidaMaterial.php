@@ -3,9 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Concerns\HasOpaqueRouteKey;
 
 class SalidaMaterial extends Model
 {
+    use HasOpaqueRouteKey;
+
     protected $table = 'salidas_materiales';
 
     protected $fillable = [

@@ -35,14 +35,14 @@ class SalidaMaterialController extends Controller
     public function store(Request $request)
     {
         $datos = $request->validate([
-            'proyecto' => ['required', 'string', 'max:255'],
-            'persona_recibe' => ['required', 'string', 'max:255'],
+            'proyecto' => ['required', 'string', 'max:150', 'not_regex:/[<>]/'],
+            'persona_recibe' => ['required', 'string', 'max:100', "regex:/^[\\pL\\s.'\\-]+$/u"],
             'ticket_id' => ['nullable', 'exists:tickets,id'],
-            'observaciones' => ['nullable', 'string'],
-            'falta_comprar' => ['nullable', 'string'],
-            'materiales' => ['required', 'array', 'min:1'],
-            'materiales.*.id' => ['required', 'exists:materiales,id'],
-            'materiales.*.cantidad' => ['required', 'integer', 'min:1'],
+            'observaciones' => ['nullable', 'string', 'max:1000', 'not_regex:/[<>]/'],
+            'falta_comprar' => ['nullable', 'string', 'max:1000', 'not_regex:/[<>]/'],
+            'materiales' => ['required', 'array', 'min:1', 'max:100'],
+            'materiales.*.id' => ['required', 'integer', 'exists:materiales,id'],
+            'materiales.*.cantidad' => ['required', 'integer', 'min:1', 'max:100000'],
         ]);
 
         $salida = DB::transaction(function () use ($datos, $request) {

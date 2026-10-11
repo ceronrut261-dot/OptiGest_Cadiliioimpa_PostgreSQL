@@ -213,6 +213,13 @@ document.addEventListener('DOMContentLoaded', function () {
         input.addEventListener('input', recalcularTotales);
     });
 
+    // Anti-XSS: texto de la base de datos que se inserta con innerHTML.
+    function escapeHtml(valor) {
+        return String(valor ?? '').replace(/[&<>"']/g, c => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[c]));
+    }
+
     document.getElementById('btnAgregarMaterialGlobal').addEventListener('click', function () {
         if (!tsGlobal || !tsGlobal.getValue()) {
             alert('Por favor selecciona un material de la lista.');
@@ -222,10 +229,10 @@ document.addEventListener('DOMContentLoaded', function () {
         const selectedOption = selectGlobal.querySelector(`option[value="${tsGlobal.getValue()}"]`);
         if (!selectedOption) return;
 
-        const codigo = selectedOption.dataset.codigo;
-        const nombre = selectedOption.dataset.nombre;
-        const unidad = selectedOption.dataset.unidad;
-        const proveedor = selectedOption.dataset.proveedor;
+        const codigo = escapeHtml(selectedOption.dataset.codigo);
+        const nombre = escapeHtml(selectedOption.dataset.nombre);
+        const unidad = escapeHtml(selectedOption.dataset.unidad);
+        const proveedor = escapeHtml(selectedOption.dataset.proveedor);
         const precio = parseFloat(selectedOption.dataset.precio) || 0;
 
         const nuevaFila = document.createElement('tr');

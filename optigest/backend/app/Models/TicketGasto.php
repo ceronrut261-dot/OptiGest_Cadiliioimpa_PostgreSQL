@@ -3,9 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Concerns\HasOpaqueRouteKey;
 
 class TicketGasto extends Model
 {
+    use HasOpaqueRouteKey;
+
     protected $table = 'ticket_gastos';
 
     const TIPOS_DOCUMENTO = [

@@ -37,7 +37,7 @@ class TicketController extends Controller
     {
         $datos = $request->validate([
             'cliente_id' => ['required', 'exists:clientes,id'],
-            'descripcion' => ['required', 'string'],
+            'descripcion' => ['required', 'string', 'max:2000', 'not_regex:/[<>]/'],
             'prioridad' => ['required', 'in:baja,media,alta,urgente'],
             'tecnico_id' => ['nullable', 'exists:users,id'],
             'fecha_programada' => ['nullable', 'date'],
@@ -65,6 +65,10 @@ class TicketController extends Controller
 
     public function show(Ticket $ticket)
     {
+        // Anti-IDOR: no basta con estar autenticado, la politica decide
+        // si este usuario puede ver este ticket en particular.
+        $this->authorize('view', $ticket);
+
         $ticket->load(['tecnico', 'cliente', 'cotizaciones', 'tecnicos', 'salidas']);
         $ticket->load(['gastos' => fn ($q) => $q->with(['registrador', 'cotizacion'])->orderByDesc('fecha_gasto')->orderByDesc('id')]);
 
@@ -95,7 +99,7 @@ class TicketController extends Controller
 
         $datos = $request->validate([
             'cliente_id' => ['required', 'exists:clientes,id'],
-            'descripcion' => ['required', 'string'],
+            'descripcion' => ['required', 'string', 'max:2000', 'not_regex:/[<>]/'],
             'prioridad' => ['required', 'in:baja,media,alta,urgente'],
             'tecnico_id' => ['nullable', 'exists:users,id'],
             'fecha_programada' => ['nullable', 'date'],

@@ -262,6 +262,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         [SalidaMaterialController::class, 'exportarPdf']
     )->name('salidas.pdf');
 
+    // Asistente IA (accesible para cualquier usuario autenticado)
     Route::get(
         'asistente',
         [AsistenteController::class, 'index']
@@ -270,7 +271,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post(
         'asistente/consultar',
         [AsistenteController::class, 'consultar']
-    )->name('asistente.consultar');
+    )->name('asistente.consultar')
+     ->middleware('throttle:20,1');
 
     Route::middleware(['role:administrador'])->group(function () {
 

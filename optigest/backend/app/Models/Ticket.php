@@ -5,10 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use App\Models\Concerns\HasOpaqueRouteKey;
 
 class Ticket extends Model
 {
-    use HasFactory;
+    use HasFactory, HasOpaqueRouteKey;
 
     protected $table = 'tickets';
 

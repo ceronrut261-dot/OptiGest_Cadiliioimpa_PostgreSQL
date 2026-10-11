@@ -156,6 +156,18 @@ class ProveedorController extends Controller
      */
     public function exportarSolicitudPdf(Request $request, Proveedor $proveedor)
     {
+        // Validacion de todo lo que llega del formulario antes de armar el PDF.
+        $request->validate([
+            'observaciones' => ['nullable', 'string', 'max:1000', 'not_regex:/[<>]/'],
+            'items' => ['required', 'array', 'max:200'],
+            'items.*.codigo' => ['nullable', 'string', 'max:50', 'not_regex:/[<>]/'],
+            'items.*.nombre' => ['nullable', 'string', 'max:255', 'not_regex:/[<>]/'],
+            'items.*.unidad' => ['nullable', 'string', 'max:30', 'not_regex:/[<>]/'],
+            'items.*.proveedor' => ['nullable', 'string', 'max:150', 'not_regex:/[<>]/'],
+            'items.*.precio' => ['nullable', 'numeric', 'min:0', 'max:9999999'],
+            'items.*.cantidad' => ['nullable', 'numeric', 'min:0', 'max:999999'],
+        ]);
+
         $items = collect($request->input('items', []))->filter(function ($item) {
             return isset($item['cantidad']) && (float)$item['cantidad'] > 0;
         });
@@ -233,10 +245,10 @@ class ProveedorController extends Controller
     private function validarDatos(Request $request): array
     {
         return $request->validate([
-            'nombre' => ['required', 'string', 'max:255'],
-            'nombre_contacto' => ['nullable', 'string', 'max:255'],
-            'telefono' => ['nullable', 'string', 'max:20'],
-            'descripcion' => ['nullable', 'string'],
+            'nombre' => ['required', 'string', 'max:150', 'not_regex:/[<>]/'],
+            'nombre_contacto' => ['nullable', 'string', 'max:100', "regex:/^[\\pL\\s.'\\-]+$/u"],
+            'telefono' => ['nullable', 'string', 'max:20', 'regex:/^[0-9+\\-\\s()]{7,20}$/'],
+            'descripcion' => ['nullable', 'string', 'max:1000', 'not_regex:/[<>]/'],
         ]);
     }
 }
