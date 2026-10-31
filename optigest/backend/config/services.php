@@ -15,10 +15,15 @@ return [
         'model' => env('ANTHROPIC_MODEL', 'claude-sonnet-4-6'),
     ],
 
+    'ollama' => [
+        'url' => env('OLLAMA_URL', 'http://127.0.0.1:11434'),
+        'model' => env('OLLAMA_MODEL', 'qwen3:1.7b'),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Google reCAPTCHA v2
-    |--------------------------------------------------------------------------
+    |---,-----------------------------------------------------------------------
     | Llaves obtenidas en https://www.google.com/recaptcha/admin/create
     | Se usan en login, registro y recuperacion de contrasena para
     | prevenir ataques automatizados (bots, fuerza bruta).
