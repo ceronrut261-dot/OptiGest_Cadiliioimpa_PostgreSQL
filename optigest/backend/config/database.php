@@ -1,3 +1,4 @@
+
 <?php
 
 use Illuminate\Support\Str;
@@ -13,6 +14,24 @@ return [
 
     'connections' => [
 
+        /*
+        |--------------------------------------------------------------------------
+        | SQLite para pruebas automatizadas
+        |--------------------------------------------------------------------------
+        | La base de datos en memoria no modifica los datos de OptiGest.
+        */
+        'sqlite' => [
+            'driver' => 'sqlite',
+            'database' => ':memory:',
+            'prefix' => '',
+            'foreign_key_constraints' => true,
+        ],
+
+        /*
+        |--------------------------------------------------------------------------
+        | PostgreSQL
+        |--------------------------------------------------------------------------
+        */
         'pgsql' => [
             'driver' => 'pgsql',
             'url' => env('DB_URL'),
@@ -28,9 +47,11 @@ return [
             'sslmode' => env('DB_SSLMODE', 'prefer'),
         ],
 
-        // Se conserva la conexion mysql por compatibilidad, en caso de que
-        // el servidor de despliegue solo tenga MySQL disponible. Para usarla
-        // basta con cambiar DB_CONNECTION=mysql en el archivo .env.
+        /*
+        |--------------------------------------------------------------------------
+        | MySQL
+        |--------------------------------------------------------------------------
+        */
         'mysql' => [
             'driver' => 'mysql',
             'url' => env('DB_URL'),
@@ -50,17 +71,30 @@ return [
 
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Migraciones
+    |--------------------------------------------------------------------------
+    */
     'migrations' => [
         'table' => 'migrations',
         'update_date_on_publish' => true,
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Redis
+    |--------------------------------------------------------------------------
+    */
     'redis' => [
         'client' => env('REDIS_CLIENT', 'phpredis'),
 
         'options' => [
             'cluster' => env('REDIS_CLUSTER', 'redis'),
-            'prefix' => env('REDIS_PREFIX', Str::slug(env('APP_NAME', 'optigest'), '_').'_database_'),
+            'prefix' => env(
+                'REDIS_PREFIX',
+                Str::slug(env('APP_NAME', 'optigest'), '_').'_database_'
+            ),
         ],
 
         'default' => [

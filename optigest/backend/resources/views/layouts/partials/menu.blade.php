@@ -1,4 +1,6 @@
+
 @php($ruta = request()->route()->getName() ?? '')
+
 <div class="list-group list-group-flush py-2">
     <a href="{{ route('dashboard') }}" class="list-group-item list-group-item-action {{ $ruta === 'dashboard' ? 'active' : '' }}">
         <i class="bi bi-speedometer2 me-2"></i> Dashboard / KPIs
@@ -55,8 +57,12 @@
             <i class="bi bi-people-fill me-2"></i> Usuarios
         </a>
 
-        <a href="{{ route('usuarios.create') }}" class="list-group-item list-group-item-action {{ str_starts_with($ruta, 'usuarios.') ? 'active' : '' }}">
+        <a href="{{ route('usuarios.create') }}" class="list-group-item list-group-item-action {{ $ruta === 'usuarios.create' ? 'active' : '' }}">
             <i class="bi bi-person-plus me-2"></i> Crear Usuario
+        </a>
+
+        <a href="{{ route('auditoria.index') }}" class="list-group-item list-group-item-action {{ str_starts_with($ruta, 'auditoria.') ? 'active' : '' }}">
+            <i class="bi bi-shield-check me-2"></i> Auditoría del sistema
         </a>
     @endrole
 </div>

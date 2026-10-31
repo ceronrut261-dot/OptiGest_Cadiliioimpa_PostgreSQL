@@ -1,30 +1,43 @@
 <?php
 
 use App\Http\Controllers\Auth\RegisteredUserController;
+use App\Http\Controllers\AuditoriaController;
+use App\Http\Controllers\Catalogo\CatalogoController;
+use App\Http\Controllers\Catalogo\CatalogoServicioController;
 use App\Http\Controllers\Clientes\ClienteController;
 use App\Http\Controllers\Cotizaciones\CotizacionController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\IA\AsistenteController;
+use App\Http\Controllers\Inventario\HistorialPrecioController;
+use App\Http\Controllers\Inventario\InventarioImportController;
 use App\Http\Controllers\Inventario\MaterialController;
 use App\Http\Controllers\Inventario\MovimientoInventarioController;
 use App\Http\Controllers\Inventario\ReporteInventarioController;
 use App\Http\Controllers\Proveedores\ProveedorController;
+use App\Http\Controllers\Salidas\SalidaMaterialController;
 use App\Http\Controllers\Tickets\TicketController;
 use App\Http\Controllers\Tickets\TicketGastoController;
-use App\Http\Controllers\Catalogo\CatalogoController;
-use App\Http\Controllers\Catalogo\CatalogoServicioController;
-use App\Http\Controllers\Inventario\InventarioImportController;
-use App\Http\Controllers\Inventario\HistorialPrecioController;
 use App\Http\Controllers\Usuarios\UsuarioController;
-use App\Http\Controllers\Salidas\SalidaMaterialController;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/dashboard');
 
 Route::middleware(['auth', 'verified'])->group(function () {
 
+    /*
+    |--------------------------------------------------------------------------
+    | Dashboard
+    |--------------------------------------------------------------------------
+    */
+
     Route::get('/dashboard', [DashboardController::class, 'index'])
         ->name('dashboard');
+
+    /*
+    |--------------------------------------------------------------------------
+    | Inventario
+    |--------------------------------------------------------------------------
+    */
 
     Route::prefix('inventario')->name('inventario.')->group(function () {
 
@@ -32,6 +45,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
             Route::resource('materiales', MaterialController::class)
                 ->parameters(['materiales' => 'material']);
+
+            // Reactivar un material previamente desactivado.
+            Route::patch(
+                'materiales/{material}/activar',
+                [MaterialController::class, 'activar']
+            )->name('materiales.activar');
 
             Route::get(
                 'materiales/{material}/historial-precios',
@@ -88,9 +107,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 'reportes/stock/exportar',
                 [ReporteInventarioController::class, 'exportarPdf']
             )->name('reportes.stock.pdf');
-        });
-
-        Route::middleware(['role:administrador'])->group(function () {
 
             Route::get(
                 'importar',
@@ -112,7 +128,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::middleware(['role:administrador|cotizador'])->group(function () {
 
-        // Endpoint API para el buscador modal comparador de proveedores
         Route::get(
             'api/materiales/comparar-precios',
             [ProveedorController::class, 'compararPreciosApi']
@@ -138,7 +153,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
             [ProveedorController::class, 'eliminarMaterialCatalogo']
         )->name('proveedores.catalogo.eliminar');
 
-        // Solicitud de cotización formal a proveedores (cálculo interactivo y PDF)
         Route::get(
             'proveedores/{proveedor}/solicitud-cotizacion',
             [ProveedorController::class, 'solicitudCotizacion']
@@ -153,7 +167,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->parameters(['proveedores' => 'proveedor']);
     });
 
-    Route::resource('clientes', ClienteController::class)->except(['show']);
+    /*
+    |--------------------------------------------------------------------------
+    | Clientes
+    |--------------------------------------------------------------------------
+    */
+
+    Route::resource('clientes', ClienteController::class)
+        ->except(['show']);
 
     Route::middleware(['role:administrador'])->group(function () {
 
@@ -162,6 +183,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
             [ClienteController::class, 'reactivar']
         )->name('clientes.reactivar');
     });
+
+    /*
+    |--------------------------------------------------------------------------
+    | Tickets y gastos
+    |--------------------------------------------------------------------------
+    */
 
     Route::resource('tickets', TicketController::class);
 
@@ -194,7 +221,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         'tickets/{ticket}/gastos/{gasto}',
         [TicketGastoController::class, 'destroy']
     )->middleware('role:administrador|cotizador')
-    ->name('tickets.gastos.destroy');
+        ->name('tickets.gastos.destroy');
+
+    /*
+    |--------------------------------------------------------------------------
+    | Catálogo de servicios
+    |--------------------------------------------------------------------------
+    */
 
     Route::get(
         'catalogo',
@@ -206,15 +239,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('catalogo.servicios.')
         ->group(function () {
 
-            Route::get(
-                'crear',
-                [CatalogoServicioController::class, 'create']
-            )->name('create');
+            Route::get('crear', [CatalogoServicioController::class, 'create'])
+                ->name('create');
 
-            Route::post(
-                '/',
-                [CatalogoServicioController::class, 'store']
-            )->name('store');
+            Route::post('/', [CatalogoServicioController::class, 'store'])
+                ->name('store');
 
             Route::get(
                 '{servicio}/editar',
@@ -232,6 +261,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
             )->name('destroy');
         });
 
+    /*
+    |--------------------------------------------------------------------------
+    | Cotizaciones
+    |--------------------------------------------------------------------------
+    */
+
     Route::middleware(['role:administrador|cotizador'])->group(function () {
 
         Route::resource('cotizaciones', CotizacionController::class)
@@ -247,22 +282,57 @@ Route::middleware(['auth', 'verified'])->group(function () {
             [CotizacionController::class, 'rechazar']
         )->name('cotizaciones.rechazar');
 
+        Route::patch(
+            'cotizaciones/{cotizacion}/revertir',
+            [CotizacionController::class, 'revertir']
+        )->name('cotizaciones.revertir');
+
         Route::get(
             'cotizaciones/{cotizacion}/pdf',
             [CotizacionController::class, 'exportarPdf']
         )->name('cotizaciones.pdf');
     });
 
-    // Salidas de materiales
+    /*
+    |--------------------------------------------------------------------------
+    | Salidas de materiales
+    |--------------------------------------------------------------------------
+    */
+
     Route::resource('salidas', SalidaMaterialController::class)
         ->only(['index', 'create', 'store']);
+
+    Route::get(
+        'salidas/{salida}/complementaria',
+        [SalidaMaterialController::class, 'crearComplementaria']
+    )->name('salidas.complementaria.create');
+
+    Route::post(
+        'salidas/{salida}/complementaria',
+        [SalidaMaterialController::class, 'guardarComplementaria']
+    )->name('salidas.complementaria.store');
+
+    Route::get(
+        'salidas/{salida}/confirmar',
+        [SalidaMaterialController::class, 'mostrarConfirmacion']
+    )->name('salidas.confirmar');
+
+    Route::patch(
+        'salidas/{salida}/confirmar',
+        [SalidaMaterialController::class, 'confirmar']
+    )->name('salidas.confirmar.guardar');
 
     Route::get(
         'salidas/{salida}/pdf',
         [SalidaMaterialController::class, 'exportarPdf']
     )->name('salidas.pdf');
 
-    // Asistente IA (accesible para cualquier usuario autenticado)
+    /*
+    |--------------------------------------------------------------------------
+    | Asistente de inteligencia artificial
+    |--------------------------------------------------------------------------
+    */
+
     Route::get(
         'asistente',
         [AsistenteController::class, 'index']
@@ -272,7 +342,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         'asistente/consultar',
         [AsistenteController::class, 'consultar']
     )->name('asistente.consultar')
-     ->middleware('throttle:20,1');
+        ->middleware('throttle:20,1');
+
+    /*
+    |--------------------------------------------------------------------------
+    | Usuarios
+    |--------------------------------------------------------------------------
+    */
 
     Route::middleware(['role:administrador'])->group(function () {
 
@@ -300,6 +376,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
             'usuarios/{usuario}/reactivar',
             [UsuarioController::class, 'reactivar']
         )->name('usuarios.reactivar');
+    });
+
+    /*
+    |--------------------------------------------------------------------------
+    | Auditoría del sistema
+    |--------------------------------------------------------------------------
+    */
+
+    Route::middleware(['role:administrador'])->group(function () {
+
+        Route::get(
+            'auditoria',
+            [AuditoriaController::class, 'index']
+        )->name('auditoria.index');
     });
 });
 

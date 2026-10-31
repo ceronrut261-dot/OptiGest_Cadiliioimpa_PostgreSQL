@@ -1,38 +1,46 @@
-<?php 
- 
-namespace App\Models; 
- 
-use Illuminate\Database\Eloquent\Factories\HasFactory; 
-use Illuminate\Database\Eloquent\Model; 
-use App\Observers\MaterialObserver; 
-use App\Models\PrecioProveedorMaterial; 
- 
-class Material extends Model 
-{ 
-    use HasFactory; 
- 
-    protected $table = 'materiales'; 
- 
-    protected $fillable = [ 
-        'codigo', 'nombre', 'categoria', 'descripcion', 'precio', 'stock', 
-        'stock_minimo', 'unidad_medida', 'proveedor_id', 'activo', 'en_bodega',
-    ]; 
- 
-    protected function casts(): array 
-    { 
-        return [ 
-            'precio' => 'decimal:2', 
-            'stock' => 'integer', 
-            'stock_minimo' => 'integer', 
-            'activo' => 'boolean', 
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use App\Models\PrecioProveedorMaterial;
+
+class Material extends Model
+{
+    use HasFactory;
+
+    protected $table = 'materiales';
+
+    protected $fillable = [
+        'codigo',
+        'nombre',
+        'categoria',
+        'descripcion',
+        'precio',
+        'stock',
+        'stock_minimo',
+        'unidad_medida',
+        'proveedor_id',
+        'activo',
+        'en_bodega',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'precio' => 'decimal:2',
+            'stock' => 'integer',
+            'stock_minimo' => 'integer',
+            'activo' => 'boolean',
             'en_bodega' => 'boolean',
-        ]; 
-    } 
- 
-    public function proveedor() 
-    { 
-        return $this->belongsTo(Proveedor::class); 
-    } 
+        ];
+    }
+
+    public function proveedor()
+    {
+        return $this->belongsTo(Proveedor::class);
+    }
 
     public function preciosProveedor()
     {
@@ -40,14 +48,13 @@ class Material extends Model
     }
 
     /**
-     * Compara todos los proveedores disponibles para este material.
-     * Devuelve el más barato y los competidores con sus precios.
+     * Compara los proveedores disponibles para este material.
+     * Devuelve el proveedor más barato y las demás opciones.
      */
     public function comparativaProveedores(): ?array
     {
         $candidatos = collect();
 
-        // 1. Proveedor asignado en la ficha del material
         if ($this->proveedor_id && $this->precio > 0 && $this->proveedor) {
             $candidatos->push([
                 'proveedor' => $this->proveedor->nombre,
@@ -55,7 +62,6 @@ class Material extends Model
             ]);
         }
 
-        // 2. Precios adicionales registrados en precios_proveedor_material
         foreach ($this->preciosProveedor as $registro) {
             if ($registro->proveedor && (float) $registro->precio > 0) {
                 $candidatos->push([
@@ -65,7 +71,10 @@ class Material extends Model
             }
         }
 
-        $unicos = $candidatos->unique(fn ($item) => $item['proveedor'].'-'.$item['precio'])->sortBy('precio')->values();
+        $unicos = $candidatos
+            ->unique(fn ($item) => $item['proveedor'] . '-' . $item['precio'])
+            ->sortBy('precio')
+            ->values();
 
         if ($unicos->isEmpty()) {
             return null;
@@ -80,42 +89,40 @@ class Material extends Model
 
     public function mejorProveedor(): ?array
     {
-        $comp = $this->comparativaProveedores();
-        return $comp ? $comp['mas_barato'] : null;
+        $comparativa = $this->comparativaProveedores();
+
+        return $comparativa ? $comparativa['mas_barato'] : null;
     }
- 
-    public function historialPrecios() 
-    { 
-        return $this->hasMany(HistorialPrecioMaterial::class, 'material_id'); 
-    } 
- 
-    protected static function booted(): void 
-    { 
-        static::observe(MaterialObserver::class); 
-    } 
- 
-    public function movimientos() 
-    { 
-        return $this->hasMany(MovimientoInventario::class); 
-    } 
- 
-    public function detallesCotizacion() 
-    { 
-        return $this->hasMany(CotizacionDetalle::class); 
-    } 
- 
-    public function getBajoStockAttribute(): bool 
-    { 
-        if (! $this->en_bodega) {
+
+    public function historialPrecios()
+    {
+        return $this->hasMany(HistorialPrecioMaterial::class, 'material_id');
+    }
+
+    public function movimientos()
+    {
+        return $this->hasMany(MovimientoInventario::class);
+    }
+
+    public function detallesCotizacion()
+    {
+        return $this->hasMany(CotizacionDetalle::class);
+    }
+
+    public function getBajoStockAttribute(): bool
+    {
+        if (!$this->en_bodega) {
             return false;
         }
-        return $this->stock <= $this->stock_minimo; 
-    } 
- 
-    public function scopeBajoStock($query) 
-    { 
-        return $query->where('en_bodega', true)->whereColumn('stock', '<=', 'stock_minimo'); 
-    } 
+
+        return $this->stock <= $this->stock_minimo;
+    }
+
+    public function scopeBajoStock($query)
+    {
+        return $query->where('en_bodega', true)
+            ->whereColumn('stock', '<=', 'stock_minimo');
+    }
 
     public function scopeEnBodega($query)
     {
@@ -126,12 +133,35 @@ class Material extends Model
     {
         return $query->where('en_bodega', false);
     }
- 
-    public static function generarCodigo(): string 
-    { 
-        $ultimo = static::orderByDesc('id')->first(); 
-        $siguiente = $ultimo ? ((int) substr($ultimo->codigo, 4)) + 1 : 1; 
- 
-        return 'MAT-'.str_pad((string) $siguiente, 5, '0', STR_PAD_LEFT); 
-    } 
+
+    public static function generarCodigo(): string
+    {
+        $codigos = static::where('codigo', 'like', 'MAT-%')
+            ->pluck('codigo');
+
+        $mayor = 0;
+
+        foreach ($codigos as $codigo) {
+            if (preg_match('/^MAT-(\d+)$/i', (string) $codigo, $coincidencia)) {
+                $numero = (int) $coincidencia[1];
+
+                if ($numero > $mayor) {
+                    $mayor = $numero;
+                }
+            }
+        }
+
+        do {
+            $mayor++;
+
+            $nuevoCodigo = 'MAT-' . str_pad(
+                (string) $mayor,
+                5,
+                '0',
+                STR_PAD_LEFT
+            );
+        } while (static::where('codigo', $nuevoCodigo)->exists());
+
+        return $nuevoCodigo;
+    }
 }

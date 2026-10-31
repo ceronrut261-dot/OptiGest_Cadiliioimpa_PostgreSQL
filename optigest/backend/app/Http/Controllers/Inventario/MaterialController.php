@@ -4,16 +4,27 @@ namespace App\Http\Controllers\Inventario;
 
 use App\Http\Controllers\Controller;
 use App\Models\Material;
-use App\Models\PrecioProveedorMaterial;
 use App\Models\Proveedor;
+use App\Services\HistorialPrecioProveedorService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class MaterialController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Material::with('proveedor')->orderByRaw("CAST(regexp_replace(codigo, '[^0-9]', '', 'g') AS INTEGER) ASC");
+        $driver = DB::connection()->getDriverName();
+
+        $query = Material::with('proveedor');
+
+        if ($driver === 'pgsql') {
+            $query->orderByRaw(
+                "CAST(regexp_replace(codigo, '[^0-9]', '', 'g') AS INTEGER) ASC"
+            );
+        } else {
+            $query->orderBy('codigo');
+        }
 
         if ($busqueda = $request->get('q')) {
             $query->where(function ($q) use ($busqueda) {
@@ -37,101 +48,192 @@ class MaterialController extends Controller
 
         return view('inventario.materiales.index', [
             'materiales' => $materiales,
-            'totalBajoStock' => Material::bajoStock()->where('activo', true)->count(),
+            'totalBajoStock' => Material::bajoStock()
+                ->where('activo', true)
+                ->count(),
         ]);
     }
 
     public function create()
     {
         return view('inventario.materiales.create', [
-            'proveedores' => Proveedor::where('activo', true)->orderBy('nombre')->get(),
+            'proveedores' => Proveedor::where('activo', true)
+                ->orderBy('nombre')
+                ->get(),
         ]);
     }
 
     public function store(Request $request)
     {
         $datos = $this->validarDatos($request);
-        
-        // Código manual o generado automáticamente
-        $datos['codigo'] = !empty($datos['codigo']) ? trim($datos['codigo']) : Material::generarCodigo();
+
+        $datos['codigo'] = !empty($datos['codigo'])
+            ? trim($datos['codigo'])
+            : Material::generarCodigo();
+
         $datos['en_bodega'] = $request->boolean('en_bodega');
 
-        if (! $datos['en_bodega']) {
+        if (!$datos['en_bodega']) {
             $datos['stock'] = 0;
             $datos['stock_minimo'] = 0;
         }
 
         $material = Material::create($datos);
 
-        return redirect()->route('inventario.materiales.index')
-            ->with('status', "Material {$material->codigo} registrado correctamente.");
+        return redirect()
+            ->route('inventario.materiales.index')
+            ->with(
+                'status',
+                "Material {$material->codigo} registrado correctamente."
+            );
     }
 
     public function edit(Material $material)
     {
         return view('inventario.materiales.edit', [
             'material' => $material,
-            'proveedores' => Proveedor::where('activo', true)->orderBy('nombre')->get(),
+            'proveedores' => Proveedor::where('activo', true)
+                ->orderBy('nombre')
+                ->get(),
         ]);
     }
 
     public function update(Request $request, Material $material)
     {
         $datos = $this->validarDatos($request, $material->id);
+
         $datos['en_bodega'] = $request->boolean('en_bodega');
+
         unset($datos['stock']);
 
-        if (! $datos['en_bodega']) {
+        if (!$datos['en_bodega']) {
             $datos['stock_minimo'] = 0;
         }
 
         $material->update($datos);
 
-        return redirect()->route('inventario.materiales.index')
-            ->with('status', "Material {$material->codigo} actualizado correctamente.");
+        return redirect()
+            ->route('inventario.materiales.index')
+            ->with(
+                'status',
+                "Material {$material->codigo} actualizado correctamente."
+            );
     }
 
+    /**
+     * Desactiva un material sin eliminarlo de la base de datos.
+     */
     public function destroy(Material $material)
     {
-        $material->update(['activo' => false]);
+        if (!$material->activo) {
+            return redirect()
+                ->route('inventario.materiales.index')
+                ->with(
+                    'status',
+                    "El material {$material->codigo} ya estaba desactivado."
+                );
+        }
 
-        return redirect()->route('inventario.materiales.index')
-            ->with('status', "Material {$material->codigo} desactivado.");
+        $material->update([
+            'activo' => false,
+        ]);
+
+        return redirect()
+            ->route('inventario.materiales.index')
+            ->with(
+                'status',
+                "Material {$material->codigo} desactivado correctamente."
+            );
+    }
+
+    /**
+     * Reactiva un material previamente desactivado.
+     */
+    public function activar(Material $material)
+    {
+        if ($material->activo) {
+            return redirect()
+                ->route('inventario.materiales.index')
+                ->with(
+                    'status',
+                    "El material {$material->codigo} ya está activo."
+                );
+        }
+
+        $material->update([
+            'activo' => true,
+        ]);
+
+        return redirect()
+            ->route('inventario.materiales.index')
+            ->with(
+                'status',
+                "Material {$material->codigo} activado correctamente."
+            );
     }
 
     public function precios(Material $material)
     {
         return view('inventario.materiales.precios', [
             'material' => $material,
-            'precios' => $material->preciosProveedor()->with('proveedor')->orderBy('precio')->get(),
-            'proveedores' => Proveedor::where('activo', true)->orderBy('nombre')->get(),
+            'precios' => $material->preciosProveedor()
+                ->with('proveedor')
+                ->orderBy('precio')
+                ->get(),
+            'proveedores' => Proveedor::where('activo', true)
+                ->orderBy('nombre')
+                ->get(),
         ]);
     }
 
     public function guardarPrecio(Request $request, Material $material)
     {
         $datos = $request->validate([
-            'proveedor_id' => ['required', 'exists:proveedores,id'],
-            'precio' => ['required', 'numeric', 'min:0'],
+            'proveedor_id' => [
+                'required',
+                'integer',
+                'exists:proveedores,id',
+            ],
+            'precio' => [
+                'required',
+                'numeric',
+                'min:0',
+                'max:9999999',
+            ],
         ]);
 
-        PrecioProveedorMaterial::updateOrCreate(
-            ['material_id' => $material->id, 'proveedor_id' => $datos['proveedor_id']],
-            ['precio' => $datos['precio'], 'actualizado_en' => now()]
+        HistorialPrecioProveedorService::guardar(
+            (int) $material->id,
+            (int) $datos['proveedor_id'],
+            (float) $datos['precio']
         );
 
-        return back()->with('status', 'Precio de proveedor guardado.');
+        return back()->with(
+            'status',
+            'Precio de proveedor guardado correctamente.'
+        );
     }
 
-    public function eliminarPrecio(Material $material, PrecioProveedorMaterial $precio)
-    {
+    public function eliminarPrecio(
+        Material $material,
+        \App\Models\PrecioProveedorMaterial $precio
+    ) {
+        if ((int) $precio->material_id !== (int) $material->id) {
+            abort(404);
+        }
+
         $precio->delete();
 
-        return back()->with('status', 'Precio de proveedor eliminado.');
+        return back()->with(
+            'status',
+            'Precio de proveedor eliminado.'
+        );
     }
 
-    private function validarDatos(Request $request, ?int $idIgnorar = null): array
-    {
+    private function validarDatos(
+        Request $request,
+        ?int $idIgnorar = null
+    ): array {
         return $request->validate([
             'codigo' => [
                 'nullable',
@@ -140,15 +242,52 @@ class MaterialController extends Controller
                 'regex:/^[A-Za-z0-9\-_.]+$/',
                 Rule::unique('materiales', 'codigo')->ignore($idIgnorar),
             ],
-            'nombre' => ['required', 'string', 'max:255', 'not_regex:/[<>]/'],
-            'categoria' => ['required', 'string', 'max:100', 'not_regex:/[<>]/'],
-            'descripcion' => ['nullable', 'string', 'max:1000', 'not_regex:/[<>]/'],
-            'precio' => ['required', 'numeric', 'min:0'],
-            'stock' => ['nullable', 'integer', 'min:0'],
-            'stock_minimo' => ['nullable', 'integer', 'min:0'],
-            'unidad_medida' => ['required', 'string', 'max:30'],
-            'proveedor_id' => ['nullable', Rule::exists('proveedores', 'id')],
-            'en_bodega' => ['nullable', 'boolean'],
+            'nombre' => [
+                'required',
+                'string',
+                'max:255',
+                'not_regex:/[<>]/',
+            ],
+            'categoria' => [
+                'required',
+                'string',
+                'max:100',
+                'not_regex:/[<>]/',
+            ],
+            'descripcion' => [
+                'nullable',
+                'string',
+                'max:1000',
+                'not_regex:/[<>]/',
+            ],
+            'precio' => [
+                'required',
+                'numeric',
+                'min:0',
+            ],
+            'stock' => [
+                'nullable',
+                'integer',
+                'min:0',
+            ],
+            'stock_minimo' => [
+                'nullable',
+                'integer',
+                'min:0',
+            ],
+            'unidad_medida' => [
+                'required',
+                'string',
+                'max:30',
+            ],
+            'proveedor_id' => [
+                'nullable',
+                Rule::exists('proveedores', 'id'),
+            ],
+            'en_bodega' => [
+                'nullable',
+                'boolean',
+            ],
         ]);
     }
 }
